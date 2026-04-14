@@ -1,0 +1,361 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ── DOG PALETTE ──────────────────────────────────────────────
+  Extracted directly from the French Bulldog mascot image:
+    Charcoal body  : #2D2D2D
+    Tan markings   : #C17A2A
+    Amber collar   : #B8691A
+    Purple bg/tag  : #5B3FDB  (the vivid purple behind the dog)
+    Purple deep    : #3A2490
+    Pink ear       : #F4A0A0
+    Cream belly    : #F5EFE0
+    Near-black     : #1A1008
+  ─────────────────────────────────────────────────────────────
+*/
+:root {
+  /* Core dog palette */
+  --dog-charcoal:   #2D2D2D;
+  --dog-tan:        #C17A2A;
+  --dog-amber:      #B8691A;
+  --dog-purple:     #5B3FDB;
+  --dog-purple-deep:#3A2490;
+  --dog-pink:       #F4A0A0;
+  --dog-cream:      #F5EFE0;
+  --dog-black:      #1A1008;
+
+  /* Semantic aliases */
+  --bg-deep:        #1E1540;   /* very dark purple — page bg */
+  --bg-card:        #2A1E6E;   /* card/panel bg */
+  --bg-card-alt:    #3A2490;   /* slightly lighter panel */
+  --accent:         #C17A2A;   /* primary CTA — amber/tan */
+  --accent-dark:    #8A4A0A;
+  --accent-light:   #E09040;
+  --purple:         #5B3FDB;
+  --purple-dark:    #3A2490;
+  --purple-light:   #7B5FEB;
+  --gold:           #F0B429;
+  --cream:          #F5EFE0;
+  --pink:           #F4A0A0;
+  --danger:         #E05050;
+  --white:          #FFFFFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Press Start 2P', monospace;
+  /* Deep purple gradient — matches the dog's card background */
+  background: linear-gradient(160deg, #1E1540 0%, #2A1E6E 45%, #3A2490 100%);
+  min-height: 100vh;
+}
+
+/* ── Cartoon border frame (like the game screenshot's orange border) ── */
+.game-frame {
+  border: 6px solid var(--accent);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 3px var(--accent-dark),
+    0 8px 32px rgba(91,63,219,0.5);
+  overflow: hidden;
+  background: #87CEEB; /* cartoon sky — only inside the game frame */
+}
+
+/* ── Arcade Buttons ── */
+.btn-arcade {
+  font-family: 'Press Start 2P', monospace;
+  background: var(--accent);
+  color: var(--cream);
+  border: 3px solid var(--accent-dark);
+  box-shadow: 0 6px 0 var(--accent-dark);
+  border-radius: 10px;
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: box-shadow 0.08s, transform 0.08s, background 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: inline-block;
+  text-align: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+.btn-arcade:hover  { background: var(--accent-light); }
+.btn-arcade:active {
+  box-shadow: 0 2px 0 var(--accent-dark);
+  transform: translateY(4px);
+}
+
+/* Purple variant */
+.btn-arcade.purple {
+  background: var(--purple);
+  color: var(--cream);
+  border-color: var(--purple-dark);
+  box-shadow: 0 6px 0 var(--purple-dark);
+}
+.btn-arcade.purple:hover  { background: var(--purple-light); }
+.btn-arcade.purple:active { box-shadow: 0 2px 0 var(--purple-dark); }
+
+/* Gold variant */
+.btn-arcade.gold {
+  background: var(--gold);
+  color: var(--dog-black);
+  border-color: #9A7000;
+  box-shadow: 0 6px 0 #9A7000;
+}
+.btn-arcade.gold:hover  { background: #FFD060; }
+.btn-arcade.gold:active { box-shadow: 0 2px 0 #9A7000; }
+
+/* Danger variant */
+.btn-arcade.danger {
+  background: var(--danger);
+  color: var(--cream);
+  border-color: #9A2020;
+  box-shadow: 0 6px 0 #9A2020;
+}
+.btn-arcade.danger:active { box-shadow: 0 2px 0 #9A2020; }
+
+.btn-arcade:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 6px 0 var(--accent-dark) !important;
+}
+
+/* ── Cards / Panels ── */
+.panel {
+  background: rgba(42, 30, 110, 0.82);
+  border: 2px solid rgba(91, 63, 219, 0.5);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+}
+
+/* Amber-accented panel */
+.panel-amber {
+  background: rgba(42, 30, 110, 0.88);
+  border: 2px solid rgba(193, 122, 42, 0.55);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(193, 122, 42, 0.15);
+}
+
+/* ── Score Popup ── */
+@keyframes scoreFloat {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  60%  { opacity: 1; transform: translateY(-55px) scale(1.6); }
+  100% { opacity: 0; transform: translateY(-95px) scale(1.2); }
+}
+.score-popup {
+  position: absolute;
+  pointer-events: none;
+  font-family: 'Press Start 2P', monospace;
+  color: var(--gold);
+  text-shadow:
+    2px 2px 0 var(--dog-black),
+    -1px -1px 0 var(--dog-black);
+  font-size: clamp(14px, 3.5vw, 24px);
+  white-space: nowrap;
+  z-index: 25;
+  animation: scoreFloat 1.4s ease-out forwards;
+}
+
+/* ── Stun Flash ── */
+@keyframes stunFlash {
+  0%, 100% { opacity: 0; }
+  25%, 75%  { opacity: 1; }
+}
+.stun-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(224, 80, 80, 0.42);
+  pointer-events: none;
+  z-index: 20;
+  animation: stunFlash 0.28s ease-in-out 3;
+}
+
+/* ── Floating Basketballs (landing page) ── */
+@keyframes floatBall {
+  0%   { transform: translateY(0) rotate(0deg);    opacity: 0.6; }
+  50%  { opacity: 0.35; }
+  100% { transform: translateY(-115vh) rotate(720deg); opacity: 0; }
+}
+.float-ball {
+  position: fixed;
+  pointer-events: none;
+  animation: floatBall linear infinite;
+  z-index: 0;
+}
+
+/* ── Result Screen ── */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.result-screen { animation: slideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* ── HUD ── */
+.hud-score {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(9px, 2.2vw, 15px);
+  text-shadow: 2px 2px 0 #000;
+}
+.hud-panel {
+  background: rgba(42, 30, 110, 0.78);
+  border: 2px solid rgba(193, 122, 42, 0.55);
+  border-radius: 10px;
+  padding: 7px 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* ── Arcade Input ── */
+input.arcade-input {
+  font-family: 'Press Start 2P', monospace;
+  background: rgba(91, 63, 219, 0.18);
+  border: 3px solid var(--purple);
+  border-radius: 10px;
+  color: var(--cream);
+  padding: 12px 16px;
+  font-size: clamp(9px, 2.2vw, 13px);
+  outline: none;
+  width: 100%;
+  text-align: center;
+}
+input.arcade-input::placeholder { color: rgba(245, 239, 224, 0.38); }
+input.arcade-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(193, 122, 42, 0.3);
+}
+
+/* ── Modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 8, 40, 0.85);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-box {
+  background: #1E1540;
+  border: 3px solid var(--purple);
+  border-radius: 18px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow:
+    0 0 0 2px var(--purple-dark),
+    0 0 40px rgba(91, 63, 219, 0.55);
+}
+
+/* ── Leaderboard Table ── */
+.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table th {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--gold);
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 2px solid rgba(193, 122, 42, 0.4);
+  background: rgba(58, 36, 144, 0.6);
+}
+.lb-table td {
+  font-size: 9px;
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(91, 63, 219, 0.2);
+  color: var(--cream);
+  font-family: monospace;
+}
+.lb-table tr:hover td { background: rgba(91, 63, 219, 0.18); }
+.lb-table tr.current-user td {
+  background: rgba(193, 122, 42, 0.18);
+  color: var(--gold);
+}
+
+/* ── Season Badge ── */
+.season-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.season-badge.summer  { background: #E8A020; color: #1A0800; }
+.season-badge.autumn  { background: #C17A2A; color: #1A0800; }
+.season-badge.winter  { background: #5D8AA8; color: #F5EFE0; }
+.season-badge.spring  { background: #27AE60; color: #F5EFE0; }
+.season-badge.night   { background: #1A0F3E; color: #CE93D8; border: 1px solid #CE93D8; }
+
+/* ── How To Play ── */
+@keyframes howToFadeIn {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.how-to-box {
+  animation: howToFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Loader spin ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 0.8s linear infinite; }
+
+/* ── Glow effects ── */
+.glow-amber  { box-shadow: 0 0 22px rgba(193, 122, 42, 0.55); }
+.glow-purple { box-shadow: 0 0 22px rgba(91, 63, 219, 0.65); }
+.text-glow   { text-shadow: 0 0 16px rgba(240, 180, 41, 0.75); }
+
+/* ── Paw divider ── */
+.paw-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(193, 122, 42, 0.55);
+}
+.paw-divider::before,
+.paw-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(91, 63, 219, 0.35);
+}
+
+/* ── Cartoon outline card (dog-style thick border) ── */
+.cartoon-card {
+  background: var(--bg-card);
+  border: 4px solid var(--dog-charcoal);
+  border-radius: 18px;
+  box-shadow:
+    4px 4px 0 var(--dog-charcoal),
+    0 0 30px rgba(91, 63, 219, 0.3);
+}
+
+/* ── Room list item ── */
+.room-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(58, 36, 144, 0.35);
+  border: 2px solid rgba(193, 122, 42, 0.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.room-item:hover {
+  border-color: rgba(193, 122, 42, 0.7);
+  background: rgba(58, 36, 144, 0.55);
+}
