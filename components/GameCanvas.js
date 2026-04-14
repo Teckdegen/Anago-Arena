@@ -49,8 +49,8 @@ export default function GameCanvas({ mode, level, user, room }) {
       // ── Scene + Camera ───────────────────────────────
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 100)
-      camera.position.set(0, 3.5, 14)
-      camera.lookAt(0, 3.5, 0)
+      camera.position.set(0, 5, 16)
+      camera.lookAt(0, 5, 0)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -78,7 +78,7 @@ export default function GameCanvas({ mode, level, user, room }) {
       court.rebuild(levelConfig)
 
       // ── Hoop ──────────────────────────────────────────
-      const hoopY  = (levelConfig.wallHeight || 3) + 0.8
+      const hoopY  = (levelConfig.wallHeight || 3) + 2.8   // much higher
       const hoopX  = levelConfig.hoopOffsetX || 0
       const hoop   = new Hoop(scene, world, THREE, CANNON, { x: hoopX, y: hoopY, z: 0 }, levelConfig.hoopRadius)
 

@@ -6,46 +6,46 @@ import {
 
 const STEPS = [
   {
+    Icon: MousePointerIcon,
+    iconColor: '#F5EFE0',
+    title: 'Tap to Jump',
+    desc: 'Tap anywhere on screen — your dog launches up fast then floats down slowly. Go anywhere, even the opponent\'s half!',
+    tip: 'Farther from the hoop = more points!',
+  },
+  {
     Icon: BasketballIcon,
     iconColor: '#C17A2A',
     title: 'Drag to Aim',
-    desc: 'Touch and drag the ball to aim your shot. The further you drag, the more power!',
-    tip: 'Arrow shows your trajectory',
+    desc: 'Once your ball is back in hand, touch near your dog and drag to aim. The further you drag, the more power!',
+    tip: 'A trajectory arc shows your shot path',
   },
   {
     Icon: SendIcon,
     iconColor: '#5B3FDB',
     title: 'Release to Shoot',
-    desc: 'Let go to launch the ball. It flies with real physics — arc it into the hoop!',
-    tip: 'Score = distance × level bonus',
-  },
-  {
-    Icon: MousePointerIcon,
-    iconColor: '#F5EFE0',
-    title: 'Tap to Move',
-    desc: 'After shooting, tap anywhere on screen. Your dog jumps to that spot with gravity!',
-    tip: 'Ball flies back to your hand',
+    desc: 'Let go to launch! Ball flies with real physics. Drag toward the hoop and release at the right angle.',
+    tip: 'Score = distance from hoop × level bonus',
   },
   {
     Icon: TargetIcon,
     iconColor: '#E05050',
     title: 'Stun Your Opponent',
-    desc: 'Aim at the enemy dog instead of the hoop! Hit them to freeze them for 2 seconds.',
-    tip: 'They can block — but get stunned if hit!',
+    desc: 'Aim at the enemy dog instead of the hoop! Hit them to freeze them for 2 seconds — they can\'t move or shoot!',
+    tip: 'They can try to block — but get stunned if hit!',
   },
   {
     Icon: TrophyIcon,
     iconColor: '#F0B429',
     title: 'First to 100 Wins!',
-    desc: 'Score points by sinking shots. Farther shots = more points. First to 100 wins!',
-    tip: 'Hoop shrinks every 10 levels!',
+    desc: 'Score points by sinking shots. Jump far away before shooting for maximum points. First to 100 wins!',
+    tip: 'Hoop gets smaller every 10 levels!',
   },
 ]
 
 export default function HowToPlay({ onClose }) {
   const [step, setStep] = useState(0)
   const current = STEPS[step]
-  const isLast = step === STEPS.length - 1
+  const isLast  = step === STEPS.length - 1
 
   return (
     <div className="modal-backdrop">
@@ -65,7 +65,6 @@ export default function HowToPlay({ onClose }) {
           <p className="font-arcade" style={{ fontSize: 9, color: '#C17A2A', letterSpacing: 2 }}>
             HOW TO PLAY
           </p>
-          {/* Step dots */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
             {STEPS.map((_, i) => (
               <div
@@ -95,7 +94,7 @@ export default function HowToPlay({ onClose }) {
             boxShadow: '3px 3px 0 #2D2D2D',
             padding: '20px 16px',
             textAlign: 'center',
-            minHeight: 210,
+            minHeight: 220,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -104,7 +103,6 @@ export default function HowToPlay({ onClose }) {
             animation: 'howToFadeIn 0.3s ease',
           }}
         >
-          {/* Icon in a circle */}
           <div style={{
             width: 72, height: 72,
             borderRadius: '50%',
@@ -124,7 +122,6 @@ export default function HowToPlay({ onClose }) {
             {current.desc}
           </p>
 
-          {/* Tip bubble */}
           <div style={{
             background: 'rgba(193,122,42,0.18)',
             border: '2px solid rgba(193,122,42,0.5)',
@@ -148,7 +145,6 @@ export default function HowToPlay({ onClose }) {
               ← BACK
             </button>
           )}
-
           {!isLast ? (
             <button
               className="btn-arcade"
