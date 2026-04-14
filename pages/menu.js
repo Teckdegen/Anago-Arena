@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { getOpenRooms, createRoom, joinRoom, subscribeToRooms } from '../lib/supabase'
-import { getLevelConfig } from '../lib/game/config'
 import {
   DogIcon, PawIcon, BotIcon, UsersIcon, TrophyIcon,
   XIcon, PlusIcon,
@@ -11,6 +10,18 @@ import {
 function shortenAddress(addr) {
   if (!addr) return ''
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+// Inline season lookup — avoids importing game modules at page level
+// Mirrors COURT_THEMES order in lib/game/config.js (10 themes, index = level % 10)
+const THEME_SEASONS = [
+  'summer', 'summer', 'autumn', 'autumn',
+  'winter', 'winter', 'spring', 'spring',
+  'night',  'night',
+]
+function getSeasonForLevel(level) {
+  const n = Math.max(1, parseInt(level) || 1)
+  return THEME_SEASONS[n % THEME_SEASONS.length] || 'summer'
 }
 
 const SEASON_EMOJI = { summer: '☀️', autumn: '🍂', winter: '❄️', spring: '🌸', night: '🌙' }
@@ -45,9 +56,7 @@ export default function Menu() {
     const lvl = parseInt(localStorage.getItem('bb_level') || '1')
     setLevel(lvl)
     setTotalPoints(parseInt(localStorage.getItem('bb_points') || '0'))
-    // Get theme for current level
-    const cfg = getLevelConfig(lvl)
-    setLevelTheme(cfg.courtTheme)
+    setLevelTheme({ season: getSeasonForLevel(lvl) })
   }, [])
 
   async function openRooms() {
@@ -236,7 +245,7 @@ export default function Menu() {
 
             <div className="flex flex-col gap-2 mb-4" style={{ maxHeight: 220, overflowY: 'auto' }}>
               {openList.map(room => {
-                const roomTheme = getLevelConfig(room.level || 1).courtTheme
+                const roomSeason = getSeasonForLevel(room.level || 1)
                 return (
                   <div key={room.id} className="room-item">
                     <div>
@@ -250,7 +259,7 @@ export default function Menu() {
                         {shortenAddress(room.host_wallet)} · Lvl {room.level}
                       </p>
                       <div className="mt-1">
-                        <SeasonBadge season={roomTheme.season} />
+                        <SeasonBadge season={roomSeason} />
                       </div>
                     </div>
                     <button
