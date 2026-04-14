@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import { useWeb3Modal } from '@web3modal/wagmi/react'
+import { useAccount, useDisconnect } from 'wagmi'
 import { upsertUser } from '../lib/supabase'
 import {
   DogIcon, WalletIcon, PawIcon, TrophyIcon,
@@ -11,7 +13,6 @@ function shortenAddress(addr) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
 }
 
-// Floating balls in background
 const FLOATERS = [
   { Icon: BasketballIcon, color: '#C17A2A', size: 28 },
   { Icon: PawIcon,        color: '#F4A0A0', size: 22 },
@@ -22,56 +23,64 @@ const FLOATERS = [
 
 export default function Landing() {
   const router = useRouter()
-  const [wallet, setWallet] = useState('')
+  const { open } = useWeb3Modal()
+  const { address, isConnected } = useAccount()
+  const { disconnect } = useDisconnect()
+
   const [username, setUsername] = useState('')
-  const [step, setStep] = useState('connect')
+  const [step, setStep] = useState('connect')   // 'connect' | 'username'
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // If already logged in, skip to menu
   useEffect(() => {
     const saved = localStorage.getItem('bb_user')
     if (saved) {
       try {
-        const user = JSON.parse(saved)
-        if (user.wallet && user.username) router.push('/menu')
+        const u = JSON.parse(saved)
+        if (u?.wallet && u?.username) { router.replace('/menu'); return }
       } catch {}
     }
   }, [])
 
-  async function connectWallet() {
-    setError('')
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setError('Install MetaMask to connect your wallet.')
-      return
-    }
-    try {
-      setLoading(true)
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      setWallet(accounts[0])
+  // When wallet connects, move to username step
+  useEffect(() => {
+    if (isConnected && address && step === 'connect') {
       setStep('username')
-    } catch {
-      setError('Wallet connection rejected.')
-    } finally {
-      setLoading(false)
+      setError('')
     }
-  }
+    if (!isConnected && step === 'username') {
+      setStep('connect')
+    }
+  }, [isConnected, address])
 
   async function handlePlay() {
     const trimmed = username.trim()
     if (trimmed.length < 3) { setError('Min 3 characters.'); return }
     if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) { setError('Letters, numbers, underscore only.'); return }
+    if (!address) { setError('Wallet not connected.'); return }
+
     setLoading(true)
     setError('')
-    const { error: dbError } = await upsertUser(wallet, trimmed)
+
+    const { error: dbError } = await upsertUser(address, trimmed)
     if (dbError && dbError.code === '23505') {
       setError('Username taken. Try another.')
       setLoading(false)
       return
     }
-    localStorage.setItem('bb_user', JSON.stringify({ wallet, username: trimmed }))
+
+    localStorage.setItem('bb_user', JSON.stringify({ wallet: address, username: trimmed }))
     if (!localStorage.getItem('bb_level'))  localStorage.setItem('bb_level', '1')
     if (!localStorage.getItem('bb_points')) localStorage.setItem('bb_points', '0')
     router.push('/menu')
+  }
+
+  function handleDisconnect() {
+    disconnect()
+    setStep('connect')
+    setUsername('')
+    setError('')
   }
 
   return (
@@ -98,67 +107,55 @@ export default function Landing() {
 
       <div className="relative min-h-screen flex flex-col items-center justify-center px-4 z-10">
 
-        {/* Logo block */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          {/* Dog mascot circle — purple bg like the image */}
           <div style={{
             width: 96, height: 96,
             borderRadius: '50%',
             background: '#5B3FDB',
             border: '4px solid #2D2D2D',
-            boxShadow: '4px 4px 0 #2D2D2D, 0 0 30px rgba(91,63,219,0.6)',
+            boxShadow: '4px 4px 0 #2D2D2D',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 14px',
           }}>
             <DogIcon size={58} color="#C17A2A" />
           </div>
-
-          <h1
-            className="font-arcade text-white"
-            style={{
-              fontSize: 'clamp(16px, 5vw, 28px)',
-              /* Cartoon thick text shadow — charcoal outline */
-              textShadow: '3px 3px 0 #2D2D2D, -1px -1px 0 #2D2D2D, 1px -1px 0 #2D2D2D, -1px 1px 0 #2D2D2D',
-              letterSpacing: 2,
-              color: '#F5EFE0',
-            }}
-          >
+          <h1 className="font-arcade" style={{
+            fontSize: 'clamp(16px, 5vw, 28px)',
+            color: '#F5EFE0',
+            textShadow: '3px 3px 0 #2D2D2D, -1px -1px 0 #2D2D2D, 1px -1px 0 #2D2D2D, -1px 1px 0 #2D2D2D',
+            letterSpacing: 2,
+          }}>
             BasketBattle
           </h1>
           <p className="font-arcade mt-2" style={{ fontSize: 8, color: '#C17A2A', letterSpacing: 3 }}>
             ULTIMATE DOG HOOP ARENA
           </p>
-
-          {/* Amber underline */}
           <div style={{
-            margin: '10px auto 0',
-            width: 100, height: 3,
+            margin: '10px auto 0', width: 100, height: 3,
             background: 'linear-gradient(90deg, transparent, #C17A2A, transparent)',
             borderRadius: 2,
           }} />
         </div>
 
-        {/* Card — cartoon thick border style */}
-        <div
-          className="cartoon-card w-full"
-          style={{ maxWidth: 360, padding: '28px 24px' }}
-        >
+        {/* Card */}
+        <div className="cartoon-card w-full" style={{ maxWidth: 360, padding: '28px 24px' }}>
+
+          {/* ── STEP 1: Connect wallet ── */}
           {step === 'connect' && (
             <div className="flex flex-col gap-5 items-center">
               <p className="font-arcade text-center leading-7" style={{ fontSize: 10, color: '#F5EFE0' }}>
                 Connect your wallet to enter the arena
               </p>
 
+              {/* Web3Modal button — opens the modal with all wallet options */}
               <button
                 className="btn-arcade w-full"
                 style={{ fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                onClick={connectWallet}
+                onClick={() => open()}
                 disabled={loading}
               >
-                {loading
-                  ? <><LoaderIcon size={14} color="currentColor" className="spin" /> Connecting...</>
-                  : <><WalletIcon size={16} color="currentColor" /> Connect Wallet</>
-                }
+                <WalletIcon size={18} color="currentColor" /> Connect Wallet
               </button>
 
               <div className="paw-divider w-full">
@@ -166,27 +163,32 @@ export default function Landing() {
               </div>
 
               <p style={{ fontFamily: 'sans-serif', fontSize: 11, color: 'rgba(245,239,224,0.6)', textAlign: 'center', lineHeight: 1.7 }}>
-                Uses MetaMask or any EVM wallet.<br/>
-                Your wallet address is your identity.
+                MetaMask, WalletConnect, Coinbase<br/>and 300+ wallets supported.
               </p>
             </div>
           )}
 
+          {/* ── STEP 2: Pick username ── */}
           {step === 'username' && (
             <div className="flex flex-col gap-5 items-center">
               {/* Connected badge */}
               <div style={{
                 background: 'rgba(193,122,42,0.15)',
-                border: '2px solid rgba(193,122,42,0.5)',
+                border: '3px solid #2D2D2D',
                 borderRadius: 10,
+                boxShadow: '3px 3px 0 #2D2D2D',
                 padding: '8px 14px',
                 textAlign: 'center',
+                width: '100%',
               }}>
-                <p className="font-arcade" style={{ fontSize: 9, color: '#C17A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                  <CheckIcon size={12} color="#C17A2A" /> Connected
+                <p className="font-arcade" style={{
+                  fontSize: 9, color: '#27AE60',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                }}>
+                  <CheckIcon size={14} color="#27AE60" /> Wallet Connected
                 </p>
                 <p className="font-arcade mt-1" style={{ fontSize: 8, color: '#F4A0A0' }}>
-                  {shortenAddress(wallet)}
+                  {shortenAddress(address)}
                 </p>
               </div>
 
@@ -194,7 +196,6 @@ export default function Landing() {
                 Name your dog
               </p>
 
-              {/* Dog avatar */}
               <div style={{
                 width: 64, height: 64,
                 borderRadius: '50%',
@@ -225,8 +226,19 @@ export default function Landing() {
               >
                 {loading
                   ? <><LoaderIcon size={14} color="currentColor" /> Saving...</>
-                  : <><PawIcon size={14} color="currentColor" /> ENTER ARENA</>
+                  : <><PawIcon size={14} color="#2D2D2D" /> ENTER ARENA</>
                 }
+              </button>
+
+              <button
+                onClick={handleDisconnect}
+                style={{
+                  fontFamily: "'Press Start 2P', monospace",
+                  fontSize: 7, color: 'rgba(244,160,160,0.5)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                }}
+              >
+                Use different wallet
               </button>
             </div>
           )}
@@ -247,8 +259,7 @@ export default function Landing() {
           style={{
             fontSize: 8, color: 'rgba(193,122,42,0.5)',
             display: 'flex', alignItems: 'center', gap: 5,
-            textDecoration: 'none',
-            transition: 'color 0.15s',
+            textDecoration: 'none', transition: 'color 0.15s',
           }}
           onMouseEnter={e => e.currentTarget.style.color = 'rgba(193,122,42,0.9)'}
           onMouseLeave={e => e.currentTarget.style.color = 'rgba(193,122,42,0.5)'}

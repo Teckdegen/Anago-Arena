@@ -49,7 +49,7 @@ create policy "public read users"
   on users for select
   using (true);
 
--- Anyone can insert/update their own user row (matched by wallet)
+-- Anyone can insert/update their own user row
 create policy "insert own user"
   on users for insert
   with check (true);
@@ -79,25 +79,26 @@ create policy "delete room"
   using (true);
 
 
--- ── Realtime ────────────────────────────────────────────────
--- Allow Supabase Realtime to broadcast rooms table changes
--- (used by the VS Player lobby to show live room list)
+-- ── Realtime ─────────────────────────────────────────────────
+-- Broadcast rooms table changes to the VS Player lobby
 
 alter publication supabase_realtime add table rooms;
 
 
--- ── Auto-cleanup stale rooms ─────────────────────────────────
--- Removes open rooms older than 15 minutes (no guest ever joined)
--- The API route /api/rooms also does this on every request,
--- but this cron keeps the table clean even without traffic.
--- Requires pg_cron extension (enabled in Supabase by default).
-
-select cron.schedule(
-  'cleanup-stale-rooms',
-  '*/15 * * * *',   -- every 15 minutes
-  $$
-    delete from rooms
-    where status = 'open'
-      and created_at < now() - interval '15 minutes';
-  $$
-);
+-- ── Stale room cleanup ────────────────────────────────────────
+-- Handled automatically by /api/rooms on every request.
+-- No pg_cron needed — no extra extensions required.
+--
+-- OPTIONAL: If you want a scheduled job, first enable pg_cron in
+-- Supabase Dashboard → Database → Extensions → pg_cron,
+-- then run this separately (NOT part of this schema file):
+--
+--   select cron.schedule(
+--     'cleanup-stale-rooms',
+--     '*/15 * * * *',
+--     $$
+--       delete from rooms
+--       where status = 'open'
+--         and created_at < now() - interval '15 minutes';
+--     $$
+--   );
