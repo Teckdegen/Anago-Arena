@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function GameCanvas({ mode, level, user, room }) {
-  const mountRef = useRef(null)
+  const mountRef  = useRef(null)
+  const [loading, setLoading] = useState(true)
+  const [loadMsg, setLoadMsg] = useState('LOADING...')
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -12,9 +14,11 @@ export default function GameCanvas({ mode, level, user, room }) {
     let onResizeHandler = null
 
     async function init() {
+      setLoadMsg('LOADING ENGINE...')
       const THREE  = await import('three')
       const CANNON = await import('cannon-es')
 
+      setLoadMsg('BUILDING COURT...')
       const { GameScene }    = await import('../lib/game/GameScene')
       const { InputSystem }  = await import('../lib/game/systems/InputSystem')
       const { PlayerSystem } = await import('../lib/game/systems/PlayerSystem')
@@ -116,10 +120,13 @@ export default function GameCanvas({ mode, level, user, room }) {
         },
         (winnerIdx, finalScores) => {
           window.BB_GAME_UI?.showResult(winnerIdx, finalScores)
-          // Broadcast game end so the other client also sees result screen
           if (isPVP && pvpSync) {
             const winnerSide = winnerIdx === 0 ? 'left' : 'right'
             pvpSync.broadcastGameEnd(winnerSide, finalScores[0], finalScores[1])
+            // Delete room so it never shows in lobby again
+            if (room) {
+              fetch(`/api/rooms?id=${room}`, { method: 'DELETE' }).catch(() => {})
+            }
           }
         }
       )
@@ -129,6 +136,7 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       // ── PVP Sync ──────────────────────────────────────
       if (isPVP && room) {
+        setLoadMsg('CONNECTING TO OPPONENT...')
         const { PVPSync } = await import('../lib/game/systems/PVPSync')
         pvpSync = new PVPSync(room, localSide)
 
@@ -173,6 +181,11 @@ export default function GameCanvas({ mode, level, user, room }) {
       window.addEventListener('resize', onResizeHandler)
 
       // ── Game Loop ─────────────────────────────────────
+      setLoadMsg('READY!')
+      // Small delay so "READY!" flashes before hiding
+      await new Promise(r => setTimeout(r, 350))
+      setLoading(false)
+
       let lastTime = performance.now()
 
       function loop() {
@@ -215,9 +228,75 @@ export default function GameCanvas({ mode, level, user, room }) {
   }, [])
 
   return (
-    <div
-      ref={mountRef}
-      style={{ width: '100vw', height: '100vh', overflow: 'hidden', touchAction: 'none' }}
-    />
+    <>
+      <div
+        ref={mountRef}
+        style={{ width: '100vw', height: '100vh', overflow: 'hidden', touchAction: 'none' }}
+      />
+
+      {/* ── Cartoon loading screen ── */}
+      {loading && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: 'linear-gradient(160deg, #1E1540 0%, #2A1E6E 50%, #3A2490 100%)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 32,
+        }}>
+          {/* Bouncing basketball */}
+          <div style={{ animation: 'loadBounce 0.6s ease-in-out infinite alternate' }}>
+            <svg width={80} height={80} viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="14" fill="#C17A2A" stroke="#2D2D2D" strokeWidth="2.5" />
+              <path d="M6 8 C9 11 10 13.5 10 16 S9 21 6 24" stroke="#2D2D2D" strokeWidth="2" fill="none" strokeLinecap="round" />
+              <path d="M26 8 C23 11 22 13.5 22 16 S23 21 26 24" stroke="#2D2D2D" strokeWidth="2" fill="none" strokeLinecap="round" />
+              <line x1="2" y1="16" x2="30" y2="16" stroke="#2D2D2D" strokeWidth="2" strokeLinecap="round" />
+              <line x1="16" y1="2" x2="16" y2="30" stroke="#2D2D2D" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          {/* LOADING text */}
+          <div style={{ textAlign: 'center' }}>
+            <p style={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 'clamp(18px, 5vw, 32px)',
+              color: '#F5EFE0',
+              textShadow: '4px 4px 0 #2D2D2D, -2px -2px 0 #2D2D2D, 2px -2px 0 #2D2D2D, -2px 2px 0 #2D2D2D',
+              letterSpacing: 3,
+              animation: 'loadPulse 1s ease-in-out infinite',
+            }}>
+              {loadMsg}
+            </p>
+          </div>
+
+          {/* Progress dots */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{
+                width: 12, height: 12,
+                borderRadius: '50%',
+                background: '#C17A2A',
+                border: '2px solid #2D2D2D',
+                animation: `loadDot 1s ease-in-out ${i * 0.2}s infinite`,
+              }} />
+            ))}
+          </div>
+
+          <style>{`
+            @keyframes loadBounce {
+              from { transform: translateY(0px) scale(1); }
+              to   { transform: translateY(-24px) scale(0.92); }
+            }
+            @keyframes loadPulse {
+              0%, 100% { opacity: 1; }
+              50%       { opacity: 0.6; }
+            }
+            @keyframes loadDot {
+              0%, 100% { transform: scale(1);   opacity: 0.4; }
+              50%       { transform: scale(1.5); opacity: 1;   }
+            }
+          `}</style>
+        </div>
+      )}
+    </>
   )
 }

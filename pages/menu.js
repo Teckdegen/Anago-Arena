@@ -108,7 +108,7 @@ export default function Menu() {
 
   if (!user) return null
 
-  const openList = rooms.filter(r => r.status === 'open')
+  const openList = rooms.filter(r => r.status === 'open' && !r.guest_wallet)
 
   return (
     <>
