@@ -1,34 +1,34 @@
 import { useState } from 'react'
 import {
   BasketballIcon, SendIcon, MousePointerIcon,
-  ZapIcon, TrophyIcon, PawIcon,
+  ZapIcon, TrophyIcon, PawIcon, TargetIcon,
 } from './Icons'
 
 const STEPS = [
   {
     Icon: BasketballIcon,
-    iconColor: '#F0B429',
+    iconColor: '#C17A2A',
     title: 'Drag to Aim',
     desc: 'Touch and drag the ball to aim your shot. The further you drag, the more power!',
-    tip: 'The arrow shows your trajectory',
+    tip: 'Arrow shows your trajectory',
   },
   {
     Icon: SendIcon,
-    iconColor: '#FF8A65',
+    iconColor: '#5B3FDB',
     title: 'Release to Shoot',
     desc: 'Let go to launch the ball. It flies with real physics — arc it into the hoop!',
-    tip: 'Score = distance from hoop x level bonus',
+    tip: 'Score = distance × level bonus',
   },
   {
     Icon: MousePointerIcon,
-    iconColor: '#8B6FDB',
+    iconColor: '#F5EFE0',
     title: 'Tap to Move',
-    desc: 'After shooting, tap anywhere on screen. Your dog runs and jumps to that spot!',
-    tip: 'Ball flies back to your hand automatically',
+    desc: 'After shooting, tap anywhere on screen. Your dog jumps to that spot with gravity!',
+    tip: 'Ball flies back to your hand',
   },
   {
-    Icon: ZapIcon,
-    iconColor: '#FF4500',
+    Icon: TargetIcon,
+    iconColor: '#E05050',
     title: 'Stun Your Opponent',
     desc: 'Aim at the enemy dog instead of the hoop! Hit them to freeze them for 2 seconds.',
     tip: 'They can block — but get stunned if hit!',
@@ -38,7 +38,7 @@ const STEPS = [
     iconColor: '#F0B429',
     title: 'First to 100 Wins!',
     desc: 'Score points by sinking shots. Farther shots = more points. First to 100 wins!',
-    tip: 'Hoop shrinks every 10 levels — good luck!',
+    tip: 'Hoop shrinks every 10 levels!',
   },
 ]
 
@@ -50,36 +50,35 @@ export default function HowToPlay({ onClose }) {
   return (
     <div className="modal-backdrop">
       <div
-        className="how-to-box w-full max-w-sm"
+        className="how-to-box w-full"
         style={{
-          background: '#2A1B5E',
-          border: '3px solid #6B4FBB',
+          maxWidth: 360,
+          background: '#1E1540',
+          border: '4px solid #2D2D2D',
           borderRadius: 20,
-          padding: 28,
-          boxShadow: '0 0 50px rgba(107,79,187,0.6)',
+          padding: 24,
+          boxShadow: '5px 5px 0 #2D2D2D, 0 0 40px rgba(91,63,219,0.5)',
         }}
       >
         {/* Header */}
-        <div className="text-center mb-6">
-          <p
-            className="font-arcade text-xs mb-2"
-            style={{ color: '#C4956A', letterSpacing: 2 }}
-          >
+        <div className="text-center mb-5">
+          <p className="font-arcade" style={{ fontSize: 9, color: '#C17A2A', letterSpacing: 2 }}>
             HOW TO PLAY
           </p>
           {/* Step dots */}
-          <div className="flex justify-center gap-2 mt-3">
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
             {STEPS.map((_, i) => (
               <div
                 key={i}
                 onClick={() => setStep(i)}
                 style={{
-                  width: i === step ? 22 : 8,
+                  width: i === step ? 24 : 8,
                   height: 8,
                   borderRadius: 4,
-                  background: i === step ? '#F0B429' : 'rgba(139,111,219,0.4)',
+                  background: i === step ? '#C17A2A' : 'rgba(91,63,219,0.4)',
+                  border: '2px solid #2D2D2D',
                   cursor: 'pointer',
-                  transition: 'all 0.25s',
+                  transition: 'all 0.2s',
                 }}
               />
             ))}
@@ -90,101 +89,93 @@ export default function HowToPlay({ onClose }) {
         <div
           key={step}
           style={{
-            background: 'rgba(74,46,138,0.6)',
-            border: '2px solid rgba(139,111,219,0.4)',
-            borderRadius: 16,
-            padding: '24px 20px',
+            background: 'rgba(42,30,110,0.7)',
+            border: '3px solid #2D2D2D',
+            borderRadius: 14,
+            boxShadow: '3px 3px 0 #2D2D2D',
+            padding: '20px 16px',
             textAlign: 'center',
-            minHeight: 200,
+            minHeight: 210,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 16,
+            gap: 14,
             animation: 'howToFadeIn 0.3s ease',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <current.Icon size={52} color={current.iconColor} />
+          {/* Icon in a circle */}
+          <div style={{
+            width: 72, height: 72,
+            borderRadius: '50%',
+            background: '#2A1E6E',
+            border: '3px solid #2D2D2D',
+            boxShadow: '3px 3px 0 #2D2D2D',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <current.Icon size={40} color={current.iconColor} />
           </div>
 
-          <h3
-            className="font-arcade"
-            style={{ color: '#F0B429', fontSize: 13, lineHeight: 1.6 }}
-          >
+          <h3 className="font-arcade" style={{ color: '#F0B429', fontSize: 11, lineHeight: 1.7, textShadow: '2px 2px 0 #2D2D2D' }}>
             {current.title}
           </h3>
 
-          <p
-            style={{
-              color: '#F5EFE0',
-              fontSize: 11,
-              lineHeight: 1.9,
-              fontFamily: 'sans-serif',
-              maxWidth: 280,
-            }}
-          >
+          <p style={{ color: '#F5EFE0', fontSize: 11, lineHeight: 1.9, fontFamily: 'sans-serif', maxWidth: 280 }}>
             {current.desc}
           </p>
 
-          <div
-            style={{
-              background: 'rgba(240,180,41,0.12)',
-              border: '1px solid rgba(240,180,41,0.3)',
-              borderRadius: 8,
-              padding: '8px 14px',
-            }}
-          >
-            <p style={{ color: '#F0B429', fontSize: 9, fontFamily: 'Press Start 2P, monospace', lineHeight: 1.7 }}>
-              {current.tip}
+          {/* Tip bubble */}
+          <div style={{
+            background: 'rgba(193,122,42,0.18)',
+            border: '2px solid rgba(193,122,42,0.5)',
+            borderRadius: 8,
+            padding: '7px 12px',
+          }}>
+            <p className="font-arcade" style={{ color: '#C17A2A', fontSize: 8, lineHeight: 1.8 }}>
+              💡 {current.tip}
             </p>
           </div>
         </div>
 
         {/* Navigation */}
-        <div className="flex gap-3 mt-5">
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           {step > 0 && (
             <button
               className="btn-arcade purple"
-              style={{ flex: 1, fontSize: 10, padding: '10px 0' }}
+              style={{ flex: 1, fontSize: 9, padding: '10px 0' }}
               onClick={() => setStep(s => s - 1)}
             >
-              BACK
+              ← BACK
             </button>
           )}
 
           {!isLast ? (
             <button
               className="btn-arcade"
-              style={{ flex: 2, fontSize: 10, padding: '10px 0' }}
+              style={{ flex: 2, fontSize: 9, padding: '10px 0' }}
               onClick={() => setStep(s => s + 1)}
             >
-              NEXT
+              NEXT →
             </button>
           ) : (
             <button
               className="btn-arcade gold"
-              style={{ flex: 2, fontSize: 10, padding: '10px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              style={{ flex: 2, fontSize: 9, padding: '10px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               onClick={onClose}
             >
-              <PawIcon size={14} color="currentColor" /> LET'S PLAY!
+              <PawIcon size={14} color="#2D2D2D" /> LET'S PLAY!
             </button>
           )}
         </div>
 
-        {/* Skip */}
         {!isLast && (
           <button
             onClick={onClose}
             style={{
-              display: 'block',
-              margin: '14px auto 0',
-              fontFamily: 'Press Start 2P, monospace',
-              fontSize: 8,
-              color: 'rgba(196,149,106,0.6)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
+              display: 'block', margin: '12px auto 0',
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 7, color: 'rgba(244,160,160,0.5)',
+              background: 'none', border: 'none', cursor: 'pointer',
             }}
           >
             Skip tutorial

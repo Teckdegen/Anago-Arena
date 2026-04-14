@@ -13,15 +13,18 @@ export default async function handler(req, res) {
 
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100)
   const supabase = getAdmin()
 
-  const { data, error } = await supabase
+  // Fetch ALL users — no cap. Admin needs to see every wallet for manual rewards.
+  const { data, error, count } = await supabase
     .from('users')
-    .select('wallet_address, username, total_points, highest_level, games_played, games_won')
+    .select('wallet_address, username, total_points, highest_level, games_played, games_won', { count: 'exact' })
     .order('total_points', { ascending: false })
-    .limit(limit)
 
   if (error) return res.status(500).json({ error: error.message })
-  res.status(200).json({ leaderboard: data || [] })
+
+  res.status(200).json({
+    leaderboard: data || [],
+    total: count || (data || []).length,
+  })
 }
