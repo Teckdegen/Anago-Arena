@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { useWeb3Modal } from '@web3modal/wagmi/react'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useDisconnect } from 'wagmi'
 import { upsertUser } from '../lib/supabase'
 import {
-  DogIcon, WalletIcon, PawIcon, TrophyIcon,
+  DogIcon, PawIcon, TrophyIcon,
   CheckIcon, AlertIcon, LoaderIcon, BasketballIcon,
 } from '../components/Icons'
 
@@ -23,17 +23,21 @@ const FLOATERS = [
 
 export default function Landing() {
   const router = useRouter()
-  const { open } = useWeb3Modal()
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
 
   const [username, setUsername] = useState('')
-  const [step, setStep] = useState('connect')   // 'connect' | 'username'
+  const [step, setStep] = useState('connect')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // If already logged in, skip to menu
+  // Avoid SSR mismatch
+  useEffect(() => { setMounted(true) }, [])
+
+  // Redirect if already logged in
   useEffect(() => {
+    if (!mounted) return
     const saved = localStorage.getItem('bb_user')
     if (saved) {
       try {
@@ -41,10 +45,11 @@ export default function Landing() {
         if (u?.wallet && u?.username) { router.replace('/menu'); return }
       } catch {}
     }
-  }, [])
+  }, [mounted])
 
-  // When wallet connects, move to username step
+  // Move to username step when wallet connects
   useEffect(() => {
+    if (!mounted) return
     if (isConnected && address && step === 'connect') {
       setStep('username')
       setError('')
@@ -52,7 +57,7 @@ export default function Landing() {
     if (!isConnected && step === 'username') {
       setStep('connect')
     }
-  }, [isConnected, address])
+  }, [isConnected, address, mounted])
 
   async function handlePlay() {
     const trimmed = username.trim()
@@ -76,12 +81,8 @@ export default function Landing() {
     router.push('/menu')
   }
 
-  function handleDisconnect() {
-    disconnect()
-    setStep('connect')
-    setUsername('')
-    setError('')
-  }
+  // Don't render wallet UI until client-side to avoid SSR mismatch
+  if (!mounted) return null
 
   return (
     <>
@@ -141,22 +142,26 @@ export default function Landing() {
         {/* Card */}
         <div className="cartoon-card w-full" style={{ maxWidth: 360, padding: '28px 24px' }}>
 
-          {/* ── STEP 1: Connect wallet ── */}
+          {/* ── STEP 1: Connect wallet via RainbowKit ── */}
           {step === 'connect' && (
             <div className="flex flex-col gap-5 items-center">
               <p className="font-arcade text-center leading-7" style={{ fontSize: 10, color: '#F5EFE0' }}>
                 Connect your wallet to enter the arena
               </p>
 
-              {/* Web3Modal button — opens the modal with all wallet options */}
-              <button
-                className="btn-arcade w-full"
-                style={{ fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                onClick={() => open()}
-                disabled={loading}
-              >
-                <WalletIcon size={18} color="currentColor" /> Connect Wallet
-              </button>
+              {/* RainbowKit ConnectButton — handles all wallets + SSR safe */}
+              <ConnectButton.Custom>
+                {({ openConnectModal, mounted: rkMounted }) => (
+                  <button
+                    className="btn-arcade w-full"
+                    style={{ fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    onClick={openConnectModal}
+                    disabled={!rkMounted}
+                  >
+                    🔗 Connect Wallet
+                  </button>
+                )}
+              </ConnectButton.Custom>
 
               <div className="paw-divider w-full">
                 <PawIcon size={16} color="#C17A2A" />
@@ -231,7 +236,7 @@ export default function Landing() {
               </button>
 
               <button
-                onClick={handleDisconnect}
+                onClick={() => { disconnect(); setStep('connect'); setUsername(''); setError('') }}
                 style={{
                   fontFamily: "'Press Start 2P', monospace",
                   fontSize: 7, color: 'rgba(244,160,160,0.5)',
