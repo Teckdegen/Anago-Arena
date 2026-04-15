@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { useDisconnect } from 'wagmi'
-import { DogIcon, PawIcon, TrophyIcon } from '../components/Icons'
+import { DogIcon, PawIcon, TrophyIcon, ArrowLeftIcon } from '../components/Icons'
 
 function shortenAddress(addr) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
@@ -128,6 +128,12 @@ export default function Arena() {
 
         {/* ── Header ── */}
         <div className="text-center mb-6">
+          <button
+            onClick={() => router.push('/select')}
+            style={{ position: 'fixed', top: 16, left: 16, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            <ArrowLeftIcon size={30} color="#C17A2A" />
+          </button>
           <div style={{
             width: 72, height: 72,
             borderRadius: '50%',
