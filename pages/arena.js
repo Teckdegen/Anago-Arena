@@ -8,13 +8,13 @@ function shortenAddress(addr) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
 }
 
-// Fetch Wars + Dog Dash removed
+// Only 2 games
 const GAMES = [
   {
     id: 'basketball',
     name: 'BasketBattle',
     emoji: '🏀',
-    desc: 'Jump, aim & shoot. First to 100 pts wins.',
+    desc: 'Jump anywhere, aim & shoot. First to 100 pts wins.',
     color: '#C17A2A', shadow: '#8A4A0A', bg: 'rgba(193,122,42,0.18)',
     route: '/game',
     tag: 'ORIGINAL', tagColor: '#F0B429',
@@ -26,34 +26,7 @@ const GAMES = [
     desc: 'Jump & head the ball into the goal. No crossing the line!',
     color: '#27AE60', shadow: '#1A6B3A', bg: 'rgba(39,174,96,0.18)',
     route: '/games/football',
-    tag: 'NEW', tagColor: '#27AE60',
-  },
-  {
-    id: 'pong',
-    name: 'Paw Pong',
-    emoji: '🏓',
-    desc: 'Classic pong with dog paddles. 3 lives each.',
-    color: '#5B3FDB', shadow: '#3A2490', bg: 'rgba(91,63,219,0.18)',
-    route: '/games/pong',
-    tag: 'NEW', tagColor: '#5B3FDB',
-  },
-  {
-    id: 'catch',
-    name: 'Bone Catch',
-    emoji: '🦴',
-    desc: 'Catch falling bones. Golden bones = 3x points!',
-    color: '#E8A020', shadow: '#9A6010', bg: 'rgba(232,160,32,0.18)',
-    route: '/games/catch',
-    tag: 'NEW', tagColor: '#E8A020',
-  },
-  {
-    id: 'tower',
-    name: 'Bark Tower',
-    emoji: '🏗️',
-    desc: 'Stack falling blocks. Build the tallest tower!',
-    color: '#76D7C4', shadow: '#1ABC9C', bg: 'rgba(118,215,196,0.18)',
-    route: '/games/tower',
-    tag: 'NEW', tagColor: '#76D7C4',
+    tag: 'HOT', tagColor: '#27AE60',
   },
 ]
 
