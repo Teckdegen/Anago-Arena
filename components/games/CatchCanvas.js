@@ -169,26 +169,73 @@ export default function CatchCanvas({ config }) {
     }
 
     function drawDog(ctx, p, score) {
+      const R = DOG_W / 2
       ctx.save()
-      ctx.translate(p.x, p.y)
+      ctx.translate(p.x, p.y - R)  // anchor at feet
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'
+      ctx.beginPath(); ctx.ellipse(0, R * 2 + 4, R * 0.8, 5, 0, 0, Math.PI*2); ctx.fill()
+
       // Body
-      ctx.beginPath(); ctx.arc(0, 0, DOG_W / 2, 0, Math.PI * 2)
-      ctx.fillStyle = p.color; ctx.fill()
-      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 3; ctx.stroke()
-      // Eyes
-      ctx.fillStyle = '#2D2D2D'
-      ctx.beginPath(); ctx.arc(-8, -6, 4, 0, Math.PI*2); ctx.fill()
-      ctx.beginPath(); ctx.arc( 8, -6, 4, 0, Math.PI*2); ctx.fill()
-      // Mouth
-      ctx.beginPath(); ctx.arc(0, 2, 9, 0.2, Math.PI - 0.2)
-      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2; ctx.stroke()
+      ctx.fillStyle = p.color
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2.5
+      ctx.beginPath(); ctx.ellipse(0, R * 0.9, R * 0.65, R * 0.75, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+
+      // Belly
+      ctx.fillStyle = '#F5EFE0'
+      ctx.beginPath(); ctx.ellipse(0, R * 1.0, R * 0.35, R * 0.45, 0, 0, Math.PI*2); ctx.fill()
+
+      // Head
+      ctx.fillStyle = p.color
+      ctx.beginPath(); ctx.arc(0, -R * 0.1, R * 0.72, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+
+      // Tan face marking
+      ctx.fillStyle = '#C4956A'
+      ctx.beginPath(); ctx.ellipse(R * 0.22, -R * 0.05, R * 0.28, R * 0.22, 0.3, 0, Math.PI*2); ctx.fill()
+
       // Ears
       ctx.fillStyle = p.color
-      ctx.beginPath(); ctx.ellipse(-14, -18, 7, 10, -0.4, 0, Math.PI*2); ctx.fill(); ctx.stroke()
-      ctx.beginPath(); ctx.ellipse( 14, -18, 7, 10,  0.4, 0, Math.PI*2); ctx.fill(); ctx.stroke()
-      // Name + score
-      ctx.fillStyle = '#F5EFE0'; ctx.font = "7px 'Press Start 2P', monospace"; ctx.textAlign = 'center'
-      ctx.fillText(`${p.name.slice(0,6)}: ${score}`, 0, DOG_H / 2 + 14)
+      ctx.beginPath(); ctx.ellipse(-R * 0.55, -R * 0.55, R * 0.22, R * 0.38, -0.3, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.beginPath(); ctx.ellipse( R * 0.55, -R * 0.55, R * 0.22, R * 0.38,  0.3, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#F4A0A0'
+      ctx.beginPath(); ctx.ellipse(-R * 0.53, -R * 0.55, R * 0.12, R * 0.22, -0.3, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.ellipse( R * 0.53, -R * 0.55, R * 0.12, R * 0.22,  0.3, 0, Math.PI*2); ctx.fill()
+
+      // Eyes — closed happy
+      ctx.fillStyle = '#2D2D2D'
+      ctx.beginPath(); ctx.arc(-R * 0.28, -R * 0.18, R * 0.14, Math.PI, 0); ctx.fill()
+      ctx.beginPath(); ctx.arc( R * 0.28, -R * 0.18, R * 0.14, Math.PI, 0); ctx.fill()
+
+      // Snout
+      ctx.fillStyle = '#C4956A'
+      ctx.beginPath(); ctx.ellipse(0, R * 0.08, R * 0.3, R * 0.2, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#2D2D2D'
+      ctx.beginPath(); ctx.arc(0, R * 0.02, R * 0.12, 0, Math.PI*2); ctx.fill()
+
+      // Collar
+      ctx.strokeStyle = p.color === '#C17A2A' ? '#5B3FDB' : '#C17A2A'
+      ctx.lineWidth = 3.5
+      ctx.beginPath(); ctx.arc(0, R * 0.38, R * 0.6, -2.3, -0.8); ctx.stroke()
+
+      // Arms holding out (catching pose)
+      ctx.strokeStyle = p.color; ctx.lineWidth = 5
+      ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(-R * 0.55, R * 0.7); ctx.lineTo(-R * 1.1, R * 0.4); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo( R * 0.55, R * 0.7); ctx.lineTo( R * 1.1, R * 0.4); ctx.stroke()
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(-R * 0.55, R * 0.7); ctx.lineTo(-R * 1.1, R * 0.4); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo( R * 0.55, R * 0.7); ctx.lineTo( R * 1.1, R * 0.4); ctx.stroke()
+
+      // Name + score label
+      ctx.fillStyle = 'rgba(30,21,64,0.8)'
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.roundRect(-R * 1.1, R * 2.1, R * 2.2, R * 0.7, 4); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#F5EFE0'
+      ctx.font = `bold ${Math.max(7, R * 0.28)}px 'Press Start 2P', monospace`
+      ctx.textAlign = 'center'
+      ctx.fillText(`${p.name.slice(0,6)}: ${score}`, 0, R * 2.6)
+
       ctx.restore()
     }
 

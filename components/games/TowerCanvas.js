@@ -19,15 +19,19 @@ export default function TowerCanvas({ config }) {
 
     // Each player has their own tower state
     function makeTower(cx) {
-      const BLOCK_H = 28
-      const BASE_W  = 120
+      const BLOCK_H = 30
+      // Base is 85% of lane width — very wide so you can stack many blocks
+      const laneW   = isPVP ? CW * 0.46 : CW * 0.82
+      const BASE_W  = Math.floor(laneW * 0.85)
       return {
-        cx,                          // center X of this tower's lane
-        blocks: [{ x: cx - BASE_W/2, w: BASE_W, y: CH - 60 }],
-        swinger: { x: cx - 80, w: BASE_W, dir: 1, speed: 120 },
+        cx,
+        blocks: [{ x: cx - BASE_W / 2, w: BASE_W, y: CH - 70 }],
+        swinger: { x: cx - BASE_W * 0.35, w: BASE_W, dir: 1, speed: 100 },
         score: 0,
         dead: false,
         BLOCK_H,
+        BASE_W,
+        laneW,
       }
     }
 
@@ -122,9 +126,9 @@ export default function TowerCanvas({ config }) {
     function updateTower(tower, delta) {
       if (tower.dead) return
       tower.swinger.x += tower.swinger.dir * tower.swinger.speed * delta
-      const top = tower.blocks[tower.blocks.length - 1]
-      if (tower.swinger.x + tower.swinger.w > tower.cx + 100) tower.swinger.dir = -1
-      if (tower.swinger.x < tower.cx - 100) tower.swinger.dir = 1
+      const halfLane = tower.laneW * 0.5
+      if (tower.swinger.x + tower.swinger.w > tower.cx + halfLane - 4) tower.swinger.dir = -1
+      if (tower.swinger.x < tower.cx - halfLane + 4) tower.swinger.dir = 1
     }
 
     function drawTower(tower, label) {

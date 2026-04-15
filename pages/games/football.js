@@ -44,7 +44,7 @@ export default function FootballPage() {
         <Head><title>Dog Football – ANAGO ARENA</title></Head>
         <GameLobby
           gameId="football"
-          gameName="Dog Football"
+          gameName="Head Ball"
           gameEmoji="⚽"
           accentColor="#27AE60"
           onStartAI={({ level }) => { setGameConfig({ mode: 'ai', level }); setGameState('playing') }}

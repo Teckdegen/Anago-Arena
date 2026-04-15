@@ -90,6 +90,14 @@ export default function PongCanvas({ config }) {
       ctx.fillStyle = '#1E1540'
       ctx.fillRect(0, 0, CW, CH)
 
+      // Stars background
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'
+      for (let i = 0; i < 40; i++) {
+        const sx = (i * 137 + 50) % CW
+        const sy = (i * 97 + 30) % CH
+        ctx.beginPath(); ctx.arc(sx, sy, 1.2, 0, Math.PI*2); ctx.fill()
+      }
+
       // Centre line
       ctx.setLineDash([12, 8])
       ctx.strokeStyle = 'rgba(255,255,255,0.2)'
@@ -97,35 +105,91 @@ export default function PongCanvas({ config }) {
       ctx.beginPath(); ctx.moveTo(CW/2, 0); ctx.lineTo(CW/2, CH); ctx.stroke()
       ctx.setLineDash([])
 
-      // Paddles (dog-shaped)
-      for (const [p, col] of [[p1, '#C17A2A'], [p2, '#5B3FDB']]) {
-        ctx.fillStyle = col
-        ctx.strokeStyle = '#2D2D2D'
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.roundRect(p.x, p.y, PAD_W, PAD_H, 8)
-        ctx.fill(); ctx.stroke()
-        // Paw print
-        ctx.fillStyle = 'rgba(255,255,255,0.3)'
-        ctx.beginPath(); ctx.arc(p.x + PAD_W/2, p.y + PAD_H/2, 5, 0, Math.PI*2); ctx.fill()
-      }
+      // Dog paddles — vertical dogs on each side
+      drawPaddleDog(ctx, p1, '#C17A2A', PAD_W, PAD_H, 'left')
+      drawPaddleDog(ctx, p2, '#5B3FDB', PAD_W, PAD_H, 'right')
 
-      // Ball
+      // Ball — basketball style
       ctx.beginPath()
       ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI*2)
-      ctx.fillStyle = '#F0B429'
+      ctx.fillStyle = '#C17A2A'
       ctx.fill()
       ctx.strokeStyle = '#2D2D2D'
       ctx.lineWidth = 2.5
       ctx.stroke()
+      // Seam lines
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(ball.x - BALL_R, ball.y); ctx.lineTo(ball.x + BALL_R, ball.y); ctx.stroke()
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R * 0.6, 0.4, Math.PI - 0.4); ctx.stroke()
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R * 0.6, Math.PI + 0.4, -0.4); ctx.stroke()
 
-      // Lives
-      ctx.font = "12px 'Press Start 2P', monospace"
+      // Lives — heart icons
+      ctx.font = "11px 'Press Start 2P', monospace"
       ctx.fillStyle = '#F5EFE0'
       ctx.textAlign = 'left'
-      ctx.fillText('❤️'.repeat(lives[0]), 20, 30)
+      ctx.fillText('♥'.repeat(lives[0]), 60, 28)
       ctx.textAlign = 'right'
-      ctx.fillText('❤️'.repeat(lives[1]), CW - 20, 30)
+      ctx.fillText('♥'.repeat(lives[1]), CW - 60, 28)
+    }
+
+    // Draw a dog standing upright as a paddle
+    function drawPaddleDog(ctx, p, color, pw, ph, side) {
+      const cx = p.x + pw / 2
+      const cy = p.y + ph / 2
+      const scale = ph / 120   // scale dog to paddle height
+
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.scale(scale, scale)
+
+      // Body
+      ctx.fillStyle = color
+      ctx.strokeStyle = '#2D2D2D'
+      ctx.lineWidth = 3 / scale
+      ctx.beginPath(); ctx.ellipse(0, 10, 22, 32, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+
+      // Belly
+      ctx.fillStyle = '#F5EFE0'
+      ctx.beginPath(); ctx.ellipse(0, 14, 12, 18, 0, 0, Math.PI*2); ctx.fill()
+
+      // Head
+      ctx.fillStyle = color
+      ctx.beginPath(); ctx.arc(0, -28, 22, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+
+      // Tan markings on face
+      ctx.fillStyle = '#C4956A'
+      ctx.beginPath(); ctx.ellipse(6, -26, 8, 6, 0.3, 0, Math.PI*2); ctx.fill()
+
+      // Ears
+      ctx.fillStyle = color
+      ctx.beginPath(); ctx.ellipse(-16, -44, 8, 13, -0.3, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.beginPath(); ctx.ellipse( 16, -44, 8, 13,  0.3, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      // Inner ear pink
+      ctx.fillStyle = '#F4A0A0'
+      ctx.beginPath(); ctx.ellipse(-15, -44, 4, 8, -0.3, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.ellipse( 15, -44, 4, 8,  0.3, 0, Math.PI*2); ctx.fill()
+
+      // Eyes — closed happy arcs
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2.5 / scale; ctx.fillStyle = '#2D2D2D'
+      ctx.beginPath(); ctx.arc(-9, -30, 5, Math.PI, 0); ctx.fill()
+      ctx.beginPath(); ctx.arc( 9, -30, 5, Math.PI, 0); ctx.fill()
+
+      // Snout
+      ctx.fillStyle = '#C4956A'
+      ctx.beginPath(); ctx.ellipse(0, -20, 10, 7, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#2D2D2D'
+      ctx.beginPath(); ctx.arc(0, -23, 4, 0, Math.PI*2); ctx.fill()
+
+      // Collar
+      ctx.strokeStyle = side === 'left' ? '#5B3FDB' : '#C17A2A'
+      ctx.lineWidth = 5 / scale
+      ctx.beginPath(); ctx.arc(0, -6, 20, -2.2, -0.9); ctx.stroke()
+      // Tag
+      ctx.fillStyle = side === 'left' ? '#C17A2A' : '#5B3FDB'
+      ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 2 / scale
+      ctx.beginPath(); ctx.arc(0, 6, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+
+      ctx.restore()
     }
 
     let animId
