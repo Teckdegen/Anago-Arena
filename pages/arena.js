@@ -8,25 +8,32 @@ function shortenAddress(addr) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
 }
 
-// Only 2 games
 const GAMES = [
   {
     id: 'basketball',
     name: 'BasketBattle',
     emoji: '🏀',
-    desc: 'Jump anywhere, aim & shoot. First to 100 pts wins.',
-    color: '#C17A2A', shadow: '#8A4A0A', bg: 'rgba(193,122,42,0.18)',
+    desc: 'Jump anywhere on the court, aim & shoot. Farther shots score more. First to 100 pts wins!',
+    color: '#C17A2A',
+    shadow: '#8A4A0A',
+    accent: 'rgba(193,122,42,0.2)',
     route: '/game',
-    tag: 'ORIGINAL', tagColor: '#F0B429',
+    tag: 'ORIGINAL',
+    tagColor: '#F0B429',
+    features: ['VS AI', 'PVP', 'ENDLESS LEVELS'],
   },
   {
     id: 'football',
-    name: 'Head Ball',
+    name: 'Dog Football',
     emoji: '⚽',
-    desc: 'Jump & head the ball into the goal. No crossing the line!',
-    color: '#27AE60', shadow: '#1A6B3A', bg: 'rgba(39,174,96,0.18)',
+    desc: '11v11 top-down football. Pick your formation, pass to teammates, score goals. 10 min match!',
+    color: '#27AE60',
+    shadow: '#1A6B3A',
+    accent: 'rgba(39,174,96,0.2)',
     route: '/games/football',
-    tag: 'HOT', tagColor: '#27AE60',
+    tag: 'HOT',
+    tagColor: '#27AE60',
+    features: ['VS AI', 'PVP', '11v11'],
   },
 ]
 
@@ -54,101 +61,112 @@ export default function Arena() {
   return (
     <>
       <Head>
-        <title>ANAGO ARENA — Games</title>
+        <title>ANAGO ARENA</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#1E1540" />
       </Head>
 
-      {/* Full-screen flex layout */}
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '0',
-        boxSizing: 'border-box',
-      }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Top bar ── */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '12px 20px',
-          background: 'rgba(30,21,64,0.95)',
+          background: 'rgba(20,12,50,0.98)',
           borderBottom: '3px solid #2D2D2D',
           boxShadow: '0 3px 0 #2D2D2D',
           flexShrink: 0,
         }}>
-          {/* Back */}
           <button onClick={() => router.push('/select')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <ArrowLeftIcon size={28} color="#C17A2A" />
           </button>
 
-          {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 40, height: 40, borderRadius: '50%',
+              width: 42, height: 42, borderRadius: '50%',
               background: '#5B3FDB', border: '3px solid #2D2D2D',
-              boxShadow: '2px 2px 0 #2D2D2D',
+              boxShadow: '3px 3px 0 #2D2D2D',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <DogIcon size={26} color="#C17A2A" />
+              <DogIcon size={28} color="#C17A2A" />
             </div>
             <div>
-              <p className="font-arcade" style={{ fontSize: 'clamp(10px,2.5vw,16px)', color: '#F5EFE0', textShadow: '2px 2px 0 #2D2D2D' }}>
+              <p className="font-arcade" style={{ fontSize: 'clamp(11px,2.5vw,17px)', color: '#F5EFE0', textShadow: '2px 2px 0 #2D2D2D' }}>
                 ANAGO ARENA
               </p>
-              <p className="font-arcade" style={{ fontSize: 6, color: '#C17A2A', letterSpacing: 2 }}>REGULAR GAMES</p>
+              <p className="font-arcade" style={{ fontSize: 6, color: '#C17A2A', letterSpacing: 2 }}>PICK YOUR GAME</p>
             </div>
           </div>
 
-          {/* User info */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ textAlign: 'right' }}>
-              <p className="font-arcade" style={{ fontSize: 9, color: '#C17A2A' }}>
-                <PawIcon size={10} color="#C17A2A" style={{ display: 'inline', marginRight: 3 }} />
-                {user.username}
+              <p className="font-arcade" style={{ fontSize: 9, color: '#C17A2A', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                <PawIcon size={10} color="#C17A2A" /> {user.username}
               </p>
               <p className="font-arcade" style={{ fontSize: 8, color: '#F0B429' }}>{totalPoints.toLocaleString()} pts</p>
             </div>
             <button onClick={() => router.push('/leaderboard')}
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <TrophyIcon size={24} color="#F0B429" />
+              <TrophyIcon size={26} color="#F0B429" />
             </button>
           </div>
         </div>
 
-        {/* ── Game grid — fills remaining screen ── */}
+        {/* ── Hero section ── */}
         <div style={{
           flex: 1,
-          display: 'grid',
-          // On mobile: 1 col. Tablet: 2 col. Desktop: fill with equal cols
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
-          gridAutoRows: '1fr',
-          gap: 0,
-          padding: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px)',
+          gap: 'clamp(16px, 3vw, 32px)',
         }}>
-          {GAMES.map(game => (
-            <GameCard key={game.id} game={game} onClick={() => router.push(game.route)} />
-          ))}
-        </div>
 
-        {/* ── Footer ── */}
-        <div style={{
-          textAlign: 'center',
-          padding: '10px',
-          background: 'rgba(30,21,64,0.8)',
-          borderTop: '2px solid rgba(45,45,45,0.5)',
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={() => { disconnect(); localStorage.removeItem('bb_user'); router.push('/') }}
-            className="font-arcade"
-            style={{ fontSize: 6, color: 'rgba(244,160,160,0.3)', background: 'none', border: 'none', cursor: 'pointer' }}
-          >
-            Disconnect Wallet
-          </button>
+          {/* Subtitle */}
+          <p className="font-arcade" style={{
+            fontSize: 'clamp(7px, 1.5vw, 10px)',
+            color: 'rgba(245,239,224,0.45)',
+            letterSpacing: 3,
+            textAlign: 'center',
+          }}>
+            2 GAMES · VS AI · PVP · LEADERBOARD
+          </p>
+
+          {/* Game cards — side by side on desktop, stacked on mobile */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+            gap: 'clamp(14px, 3vw, 28px)',
+            width: '100%',
+            maxWidth: 860,
+          }}>
+            {GAMES.map(game => (
+              <GameCard key={game.id} game={game} onClick={() => router.push(game.route)} />
+            ))}
+          </div>
+
+          {/* Wallet strip */}
+          <div style={{
+            background: 'rgba(42,30,110,0.5)',
+            border: '2px solid rgba(91,63,219,0.3)',
+            borderRadius: 10,
+            padding: '8px 18px',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <PawIcon size={12} color="rgba(193,122,42,0.6)" />
+            <span className="font-arcade" style={{ fontSize: 7, color: 'rgba(244,160,160,0.5)' }}>
+              {shortenAddress(user.wallet)}
+            </span>
+            <button
+              onClick={() => { disconnect(); localStorage.removeItem('bb_user'); router.push('/') }}
+              className="font-arcade"
+              style={{ fontSize: 6, color: 'rgba(244,160,160,0.35)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 8 }}
+            >
+              DISCONNECT
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -164,76 +182,107 @@ function GameCard({ game, onClick }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        background: hover ? game.bg : 'rgba(42,30,110,0.6)',
-        border: 'none',
-        borderRight: '2px solid rgba(45,45,45,0.4)',
-        borderBottom: '2px solid rgba(45,45,45,0.4)',
+        background: hover ? game.accent : 'rgba(30,20,70,0.85)',
+        border: `4px solid ${hover ? game.color : '#2D2D2D'}`,
+        borderRadius: 20,
+        boxShadow: hover
+          ? `6px 6px 0 ${game.shadow}, 0 0 40px ${game.accent}`
+          : '5px 5px 0 #2D2D2D',
+        padding: 'clamp(20px, 3vw, 32px)',
         cursor: 'pointer',
         textAlign: 'left',
-        padding: 'clamp(16px, 3vw, 28px)',
-        transition: 'background 0.15s',
+        transition: 'all 0.14s',
+        transform: hover ? 'translateY(-4px)' : 'none',
+        position: 'relative',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        minHeight: 'clamp(160px, 20vh, 260px)',
-        position: 'relative',
-        outline: hover ? `3px solid ${game.color}` : '3px solid transparent',
-        outlineOffset: '-3px',
+        gap: 16,
       }}
     >
       {/* Tag */}
       <div style={{
-        position: 'absolute', top: 10, right: 10,
+        position: 'absolute', top: 12, right: 12,
         background: game.tagColor,
         color: '#1A1008',
         fontFamily: "'Press Start 2P', monospace",
-        fontSize: 6,
-        padding: '3px 7px',
-        borderRadius: 4,
+        fontSize: 7,
+        padding: '4px 9px',
+        borderRadius: 6,
         border: '2px solid #2D2D2D',
         boxShadow: '2px 2px 0 #2D2D2D',
       }}>
         {game.tag}
       </div>
 
-      {/* Top: emoji + name */}
-      <div>
-        <div style={{ fontSize: 'clamp(32px, 5vw, 48px)', lineHeight: 1, marginBottom: 10 }}>
+      {/* Emoji + name row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{
+          width: 'clamp(56px, 8vw, 80px)',
+          height: 'clamp(56px, 8vw, 80px)',
+          borderRadius: '50%',
+          background: hover ? game.color : 'rgba(42,30,110,0.8)',
+          border: `3px solid ${hover ? '#2D2D2D' : 'rgba(45,45,45,0.6)'}`,
+          boxShadow: hover ? '3px 3px 0 #2D2D2D' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 'clamp(28px, 4vw, 40px)',
+          flexShrink: 0,
+          transition: 'all 0.14s',
+        }}>
           {game.emoji}
         </div>
-        <p className="font-arcade" style={{
-          fontSize: 'clamp(9px, 1.8vw, 13px)',
-          color: '#F5EFE0',
-          textShadow: '1px 1px 0 #2D2D2D',
-          marginBottom: 6,
-        }}>
-          {game.name}
-        </p>
-        <p style={{
-          fontFamily: 'sans-serif',
-          fontSize: 'clamp(10px, 1.4vw, 13px)',
-          color: 'rgba(245,239,224,0.6)',
-          lineHeight: 1.5,
-        }}>
-          {game.desc}
-        </p>
+        <div>
+          <p className="font-arcade" style={{
+            fontSize: 'clamp(12px, 2.2vw, 18px)',
+            color: hover ? game.color : '#F5EFE0',
+            textShadow: '2px 2px 0 #2D2D2D',
+            marginBottom: 4,
+            transition: 'color 0.14s',
+          }}>
+            {game.name}
+          </p>
+          {/* Feature pills */}
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            {game.features.map(f => (
+              <span key={f} style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: 6,
+                padding: '2px 7px',
+                borderRadius: 4,
+                background: 'rgba(91,63,219,0.35)',
+                border: '1px solid rgba(91,63,219,0.5)',
+                color: 'rgba(245,239,224,0.7)',
+              }}>{f}</span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Bottom: play bar */}
+      {/* Description */}
+      <p style={{
+        fontFamily: 'sans-serif',
+        fontSize: 'clamp(11px, 1.5vw, 14px)',
+        color: 'rgba(245,239,224,0.65)',
+        lineHeight: 1.6,
+      }}>
+        {game.desc}
+      </p>
+
+      {/* Play button */}
       <div style={{
-        marginTop: 14,
-        background: hover ? game.color : 'rgba(255,255,255,0.06)',
-        border: `2px solid ${hover ? '#2D2D2D' : 'rgba(255,255,255,0.1)'}`,
-        boxShadow: hover ? `2px 2px 0 ${game.shadow}` : 'none',
-        borderRadius: 8,
-        padding: '7px 0',
+        background: hover ? game.color : 'rgba(255,255,255,0.07)',
+        border: `3px solid ${hover ? '#2D2D2D' : 'rgba(255,255,255,0.12)'}`,
+        boxShadow: hover ? `3px 3px 0 ${game.shadow}` : 'none',
+        borderRadius: 10,
+        padding: '10px 0',
         textAlign: 'center',
         fontFamily: "'Press Start 2P', monospace",
-        fontSize: 8,
-        color: hover ? '#F5EFE0' : 'rgba(245,239,224,0.4)',
-        transition: 'all 0.12s',
+        fontSize: 10,
+        color: hover ? '#F5EFE0' : 'rgba(245,239,224,0.35)',
+        transition: 'all 0.14s',
+        letterSpacing: 1,
       }}>
-        {hover ? 'PLAY NOW →' : 'PLAY →'}
+        {hover ? '▶  PLAY NOW' : 'PLAY →'}
       </div>
     </button>
   )

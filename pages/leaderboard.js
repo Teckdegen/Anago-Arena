@@ -8,14 +8,9 @@ import {
 } from '../components/Icons'
 
 const GAMES = [
-  { id: 'all',        label: 'ALL GAMES', emoji: '🏆' },
+  { id: 'all',        label: 'ALL GAMES',  emoji: '🏆' },
   { id: 'basketball', label: 'Basketball', emoji: '🏀' },
   { id: 'football',   label: 'Football',   emoji: '⚽' },
-  { id: 'pong',       label: 'Paw Pong',   emoji: '🏓' },
-  { id: 'catch',      label: 'Bone Catch', emoji: '🦴' },
-  { id: 'dash',       label: 'Dog Dash',   emoji: '🐾' },
-  { id: 'fetch',      label: 'Fetch Wars', emoji: '🎾' },
-  { id: 'tower',      label: 'Bark Tower', emoji: '🏗️' },
 ]
 
 function RankBadge({ index }) {

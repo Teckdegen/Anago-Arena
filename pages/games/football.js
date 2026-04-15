@@ -8,19 +8,18 @@ import { TrophyIcon, SkullIcon, ArrowLeftIcon } from '../../components/Icons'
 
 const FootballCanvas = dynamic(() => import('../../components/games/FootballCanvas'), { ssr: false })
 
-const FORMATIONS = ['4-4-2', '4-3-3', '3-5-2', '5-3-2']
+const FORMATIONS = ['1-2-1', '1-1-2', '1-3-0']
 const FORMATION_DESC = {
-  '4-4-2': 'Balanced. 4 defenders, 4 midfielders, 2 strikers.',
-  '4-3-3': 'Attacking. 4 defenders, 3 midfielders, 3 strikers.',
-  '3-5-2': 'Midfield control. 3 defenders, 5 midfielders, 2 strikers.',
-  '5-3-2': 'Defensive. 5 defenders, 3 midfielders, 2 strikers.',
+  '1-2-1': 'Balanced. GK + 2 defenders + 1 mid + 1 forward.',
+  '1-1-2': 'Attacking. GK + 1 defender + 1 mid + 2 forwards.',
+  '1-3-0': 'Defensive. GK + 3 defenders + 1 mid, no forwards.',
 }
 
 export default function FootballPage() {
   const router = useRouter()
   const [gameState, setGameState]   = useState('lobby')   // lobby | formation | playing | result
   const [gameConfig, setGameConfig] = useState(null)
-  const [formation, setFormation]   = useState('4-4-2')
+  const [formation, setFormation]   = useState('1-2-1')
   const [result, setResult]         = useState(null)
   const [scores, setScores]         = useState([0, 0])
   const [user, setUser]             = useState(null)
