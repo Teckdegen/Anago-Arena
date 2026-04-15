@@ -155,20 +155,18 @@ export default function FootballCanvas({ config }) {
         ball.vy *= -0.6
       }
 
-      // Left wall / goal
+      // Left wall / goal — ball goes in LEFT goal = AI (p2) scored
       if (ball.x - ball.r <= GOAL_W) {
         if (ball.y + ball.r > goalL.y) {
-          // GOAL for p1
-          doGoal(0); return
+          doGoal(1); return   // p2 (AI) scores
         }
         ball.x  = GOAL_W + ball.r
         ball.vx *= -0.7
       }
-      // Right wall / goal
+      // Right wall / goal — ball goes in RIGHT goal = Player (p1) scored
       if (ball.x + ball.r >= CW - GOAL_W) {
         if (ball.y + ball.r > goalR.y) {
-          // GOAL for p2
-          doGoal(1); return
+          doGoal(0); return   // p1 (player) scores
         }
         ball.x  = CW - GOAL_W - ball.r
         ball.vx *= -0.7
@@ -208,7 +206,9 @@ export default function FootballCanvas({ config }) {
       window.ANAGO_UI?.updateScore(scores[0], scores[1])
       if (scores[scorerIdx] >= WIN) {
         gameOver = true
-        window.ANAGO_UI?.showResult(scorerIdx === 0 ? 0 : 1, [...scores])
+        // scorerIdx 0 = player scored = player wins (winner=0)
+        // scorerIdx 1 = AI scored = AI wins (winner=1)
+        window.ANAGO_UI?.showResult(scorerIdx, [...scores])
         return
       }
       resetBall(scorerIdx)
