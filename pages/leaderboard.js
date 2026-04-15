@@ -11,7 +11,6 @@ const GAMES = [
   { id: 'all',        label: 'ALL GAMES',  emoji: '🏆' },
   { id: 'basketball', label: 'Basketball', emoji: '🏀' },
   { id: 'football',   label: 'Head Ball',  emoji: '⚽' },
-  { id: 'tennis',     label: 'Tennis',     emoji: '🎾' },
 ]
 
 function RankBadge({ index }) {

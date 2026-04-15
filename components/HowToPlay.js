@@ -5,40 +5,39 @@ import { BasketballIcon, PawIcon, TrophyIcon, ZapIcon, TargetIcon } from './Icon
 const GAMES = [
   { id: 'basketball', label: 'BasketBattle', emoji: '🏀', color: '#C17A2A' },
   { id: 'football',   label: 'Head Ball',    emoji: '⚽', color: '#27AE60' },
-  { id: 'tennis',     label: 'Dog Tennis',   emoji: '🎾', color: '#E8A020' },
 ]
 
 const STEPS = {
   basketball: [
     {
-      emoji: '←→',
-      title: 'Move',
-      desc: 'Press ← → buttons to run left and right across the court.',
-      tip: 'Get under the ball to pick it up automatically',
-    },
-    {
-      emoji: '↑',
-      title: 'Jump',
-      desc: 'Press ↑ to jump. Jump near the hoop while holding the ball for a DUNK!',
-      tip: 'Dunk = instant basket + fire animation 🔥',
-    },
-    {
       emoji: '🏀',
-      title: 'SHOOT',
-      desc: 'Press SHOOT when you have the ball. It launches toward the opponent\'s hoop with arc physics.',
-      tip: 'Aim from distance for a clean arc shot',
+      title: 'Tap to Jump',
+      desc: 'Tap anywhere on screen — your dog jumps to that spot. Go anywhere on the court!',
+      tip: 'Farther from the hoop = more points when you score!',
+    },
+    {
+      emoji: '🎯',
+      title: 'Drag to Aim',
+      desc: 'Touch near your dog and drag to aim. A curved arc shows exactly where the ball will go.',
+      tip: 'Longer drag = more power',
+    },
+    {
+      emoji: '🚀',
+      title: 'Release to Shoot',
+      desc: 'Let go to launch! Ball flies with real physics — gravity, bounce, and spin.',
+      tip: 'Score = distance from hoop × level multiplier',
     },
     {
       emoji: '💥',
-      title: 'TACKLE (T)',
-      desc: 'Press TACKLE when you\'re close to the opponent. Knocks the ball loose and sends them flying back!',
-      tip: 'Only works within 2 body widths — get close first!',
+      title: 'Stun Opponent',
+      desc: 'Aim at the enemy dog instead of the hoop! Hit them to freeze them for 2 seconds.',
+      tip: 'They can block — but get stunned if the ball hits them!',
     },
     {
       emoji: '🏆',
-      title: 'Win!',
-      desc: 'First to 7 baskets wins. Both players can score in either hoop — defend yours!',
-      tip: 'Works VS AI and PVP online',
+      title: 'First to 100 Wins!',
+      desc: 'Score points by sinking shots. Both players shoot simultaneously. First to 100 wins!',
+      tip: 'Hoop gets smaller every 10 levels!',
     },
   ],
   football: [
@@ -70,38 +69,6 @@ const STEPS = {
       emoji: '🏆',
       title: 'Win!',
       desc: 'First to 5 goals wins. 90 second timer — whoever leads when time runs out wins!',
-      tip: 'Works VS AI and PVP online',
-    },
-  ],
-  tennis: [
-    {
-      emoji: '←→',
-      title: 'Move',
-      desc: 'Press ← → to slide along your baseline. Position yourself behind the ball.',
-      tip: 'Stay centered when opponent is hitting',
-    },
-    {
-      emoji: '🎾',
-      title: 'HIT (A)',
-      desc: 'Press HIT when the ball is near you. Sends a flat drive to the opponent\'s side.',
-      tip: 'Aim for the corners to make it hard to return',
-    },
-    {
-      emoji: '🌟',
-      title: 'LOB (↑)',
-      desc: 'Press LOB for a high arcing shot. Ball goes way up and drops deep — hard to return!',
-      tip: 'Use lob when opponent is at the net',
-    },
-    {
-      emoji: '📊',
-      title: 'Scoring',
-      desc: 'Real tennis scoring: 0 → 15 → 30 → 40 → Game. Deuce and Advantage apply. First to 6 games wins a set. Best of 3 sets wins!',
-      tip: 'At deuce you need 2 clear points to win the game',
-    },
-    {
-      emoji: '🏆',
-      title: 'Win!',
-      desc: 'Win 2 sets to win the match. Ball bouncing twice on your side = opponent\'s point.',
       tip: 'Works VS AI and PVP online',
     },
   ],
