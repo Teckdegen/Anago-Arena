@@ -32,6 +32,38 @@ export default function TennisCanvas({ config }) {
     const COURT_R  = CW - RIGHT_W
 
     const isPVP = config?.mode === 'pvp'
+    const localSide = config?.side || 'left'
+
+    // ── PVP Sync ──────────────────────────────────────────────────────────────
+    let sync = null
+    async function initSync() {
+      if (!isPVP || !config?.roomId) return
+      const { FootballSync } = await import('../../lib/football/FootballSync')
+      sync = new FootballSync(config.roomId, localSide)
+      sync
+        .on('onRemoteInput', payload => {
+          // Remote player movement
+          if (payload.vx !== undefined) {
+            const rp = localSide === 'left' ? p2 : p1
+            rp.vx = payload.vx
+          }
+          if (payload.swing) {
+            const rp = localSide === 'left' ? p2 : p1
+            rp.swinging = true; rp.swingTimer = 0.25
+            if (payload.ballVx !== undefined) { ball.vx = payload.ballVx; ball.vy = payload.ballVy; ball.vz = payload.ballVz || 6 }
+          }
+        })
+        .on('onGoal', payload => {
+          pts[0] = payload.s0; pts[1] = payload.s1
+          window.ANAGO_UI?.updateScore(sets[0], sets[1])
+        })
+        .on('onGameEnd', payload => {
+          gameOver = true
+          window.ANAGO_UI?.showResult(payload.winnerSide === 'left' ? 0 : 1, [payload.s0, payload.s1])
+        })
+        .connect()
+    }
+    initSync()
 
     // ── Tennis scoring ────────────────────────────────────────────────────────
     const PTS = ['0', '15', '30', '40']
@@ -484,13 +516,22 @@ export default function TennisCanvas({ config }) {
       if (keys.a && !p1.swinging) {
         p1.swinging = true; p1.swingTimer = 0.25
         const ballNear = Math.abs(ball.x - p1.x) < 70 && Math.abs(ball.y - p1.y) < 70 && ball.z < 50
-        if (ballNear && ball.inPlay) hitBall(p1, false)
+        if (ballNear && ball.inPlay) {
+          hitBall(p1, false)
+          if (isPVP && sync) sync.broadcastInput({ vx: p1.vx, swing: true, ballVx: ball.vx, ballVy: ball.vy, ballVz: ball.vz })
+        }
       }
       if (keys.up && !p1.swinging) {
         p1.swinging = true; p1.swingTimer = 0.25
         const ballNear = Math.abs(ball.x - p1.x) < 70 && Math.abs(ball.y - p1.y) < 70 && ball.z < 50
-        if (ballNear && ball.inPlay) hitBall(p1, true)
+        if (ballNear && ball.inPlay) {
+          hitBall(p1, true)
+          if (isPVP && sync) sync.broadcastInput({ vx: p1.vx, swing: true, ballVx: ball.vx, ballVy: ball.vy, ballVz: ball.vz })
+        }
       }
+
+      // Broadcast movement every frame in PVP
+      if (isPVP && sync) sync.broadcastInput({ vx: p1.vx })
 
       // Swing timers
       for (const p of [p1, p2]) {
@@ -529,6 +570,7 @@ export default function TennisCanvas({ config }) {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup',   onKeyUp)
       window.removeEventListener('resize',  onResize)
+      sync?.disconnect()
     }
   }, [config])
 

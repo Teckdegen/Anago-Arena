@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { useDisconnect } from 'wagmi'
 import { DogIcon, PawIcon, TrophyIcon, ArrowLeftIcon } from '../components/Icons'
+import HowToPlay from '../components/HowToPlay'
 
 function shortenAddress(addr) {
   return addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
@@ -44,6 +45,7 @@ export default function Arena() {
   const [user, setUser]         = useState(null)
   const [totalPoints, setTotal] = useState(0)
   const [mounted, setMounted]   = useState(false)
+  const [showHowTo, setShowHowTo] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -111,6 +113,19 @@ export default function Arena() {
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               <TrophyIcon size={26} color="#F0B429" />
             </button>
+            <button
+              onClick={() => setShowHowTo(true)}
+              style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: 7, color: '#F5EFE0',
+                background: 'rgba(91,63,219,0.5)',
+                border: '2px solid #2D2D2D',
+                borderRadius: 6, padding: '5px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              ?
+            </button>
           </div>
         </div>
 
@@ -170,6 +185,7 @@ export default function Arena() {
           </div>
         </div>
       </div>
+      {showHowTo && <HowToPlay onClose={() => setShowHowTo(false)} />}
     </>
   )
 }

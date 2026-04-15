@@ -53,7 +53,7 @@ export default function FootballCanvas({ config }) {
       side: 'right',
       maxX: CW - GOAL_W - DOG_R,
       minX: MID_X + DOG_R + 4,
-      power: false, powerTimer: 0,
+      power: false, powerTimer: 0, stealCooldown: 0,
     }
 
     // ── Ball ─────────────────────────────────────────────────────────────────
@@ -67,9 +67,10 @@ export default function FootballCanvas({ config }) {
     let goalFlash = 0, goalFlashSide = 0
 
     // ── Input (button state) ──────────────────────────────────────────────────
-    const keys = { left: false, right: false, up: false, a: false }
+    const keys = { left: false, right: false, up: false, a: false, t: false }
     // Touch button areas (set after first draw)
     const BTN = {}
+    let tackleCooldown = 0
 
     function getPos(e) {
       const r = canvas.getBoundingClientRect()
@@ -109,12 +110,14 @@ export default function FootballCanvas({ config }) {
       if (e.key === 'ArrowRight') keys.right = true
       if (e.key === 'ArrowUp')    keys.up    = true
       if (e.key === 'a' || e.key === 'A') keys.a = true
+      if (e.key === 't' || e.key === 'T') keys.t = true
     }
     function onKeyUp(e) {
       if (e.key === 'ArrowLeft')  keys.left  = false
       if (e.key === 'ArrowRight') keys.right = false
       if (e.key === 'ArrowUp')    keys.up    = false
       if (e.key === 'a' || e.key === 'A') keys.a = false
+      if (e.key === 't' || e.key === 'T') keys.t = false
     }
 
     canvas.addEventListener('touchstart', onTouchStart, { passive: false })
@@ -419,9 +422,10 @@ export default function FootballCanvas({ config }) {
       // Left side: ← →
       BTN.left  = { x: 12,          y: by, w: bw, h: bh }
       BTN.right = { x: 12 + bw + gap, y: by, w: bw, h: bh }
-      // Right side: ↑ A
+      // Right side: ↑ A T
       BTN.up = { x: CW - bw - 12,           y: by, w: bw, h: bh }
       BTN.a  = { x: CW - bw*2 - gap - 12,   y: by, w: bw, h: bh }
+      BTN.t  = { x: CW - bw*3 - gap*2 - 12, y: by, w: bw, h: bh }
     }
 
     function drawButtons() {
@@ -432,10 +436,11 @@ export default function FootballCanvas({ config }) {
       }
 
       for (const [key, label, color] of [
-        ['left',  '←', '#C17A2A'],
-        ['right', '→', '#C17A2A'],
-        ['up',    '↑', '#5B3FDB'],
-        ['a',     'A', '#E05050'],
+        ['left',  '←',      '#C17A2A'],
+        ['right', '→',      '#C17A2A'],
+        ['up',    '↑',      '#5B3FDB'],
+        ['a',     'KICK',   '#E05050'],
+        ['t',     'TACKLE', '#E8A020'],
       ]) {
         const b = BTN[key]
         if (!b) continue
@@ -443,7 +448,7 @@ export default function FootballCanvas({ config }) {
         btnStyle(keys[key], color)
         ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 12); ctx.fill(); ctx.stroke()
         ctx.fillStyle = keys[key] ? '#FFD700' : '#F5EFE0'
-        ctx.font = "bold 22px 'Press Start 2P', monospace"
+        ctx.font = `bold ${label.length > 2 ? 9 : 22}px 'Press Start 2P', monospace`
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         ctx.fillText(label, b.x + b.w/2, b.y + b.h/2)
         ctx.restore()
@@ -469,6 +474,34 @@ export default function FootballCanvas({ config }) {
       if (!keys.left && !keys.right) p1.vx *= 0.7
       if (keys.up && p1.onGround) { p1.vy = JUMP_V; p1.onGround = false }
       if (keys.a) { p1.power = true; p1.powerTimer = 0.15 }
+
+      // T = TACKLE — close range only, knocks ball loose
+      tackleCooldown = Math.max(0, tackleCooldown - delta)
+      if (keys.t && tackleCooldown <= 0) {
+        const d = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+        if (d < DOG_R * 2.8) {
+          // Knock ball away from p2
+          ball.vx = (ball.x - p2.x > 0 ? 1 : -1) * 7 + (Math.random()-0.5)*3
+          ball.vy = -5
+          p2.power = false
+          // Knockback p2
+          p2.vx = (p2.x - p1.x > 0 ? 1 : -1) * 6
+          p2.vy = -5
+          tackleCooldown = 1.5
+        }
+      }
+
+      // AI tackle
+      if (!isPVP && p2.stealCooldown <= 0) {
+        const d = Math.hypot(p1.x - p2.x, p1.y - p2.y)
+        if (d < DOG_R * 2.8 && Math.random() < 0.08) {
+          ball.vx = (ball.x - p1.x > 0 ? 1 : -1) * 7
+          ball.vy = -5
+          p1.vx = (p1.x - p2.x > 0 ? 1 : -1) * 6; p1.vy = -5
+          p2.stealCooldown = 1.5
+        }
+      }
+      if (p2.stealCooldown > 0) p2.stealCooldown -= delta
 
       updateAI(delta)
       updatePlayer(p1, delta)

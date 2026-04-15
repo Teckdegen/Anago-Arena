@@ -37,15 +37,13 @@ create index if not exists idx_game_scores_game on game_scores (game_id, best_sc
 
 create table if not exists rooms (
   id             uuid        default gen_random_uuid() primary key,
-  game_id        text        default 'basketball',
+  game_id        text        default 'basketball',  -- 'basketball' | 'football' | 'tennis'
   host_wallet    text        not null,
   host_username  text        not null,
   level          integer     default 1,
   status         text        default 'open',
   guest_wallet   text,
   guest_username text,
-  -- Football-specific: formation chosen by host
-  host_formation text        default '4-4-2',
   created_at     timestamptz default now()
 );
 

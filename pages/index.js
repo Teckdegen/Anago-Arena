@@ -87,7 +87,7 @@ export default function Landing() {
   return (
     <>
       <Head>
-        <title>BasketBattle</title>
+        <title>ANAGO ARENA</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <meta name="theme-color" content="#1E1540" />
       </Head>
@@ -127,10 +127,10 @@ export default function Landing() {
             textShadow: '3px 3px 0 #2D2D2D, -1px -1px 0 #2D2D2D, 1px -1px 0 #2D2D2D, -1px 1px 0 #2D2D2D',
             letterSpacing: 2,
           }}>
-            BasketBattle
+            ANAGO ARENA
           </h1>
           <p className="font-arcade mt-2" style={{ fontSize: 8, color: '#C17A2A', letterSpacing: 3 }}>
-            ULTIMATE DOG HOOP ARENA
+            ULTIMATE DOG SPORTS ARENA
           </p>
           <div style={{
             margin: '10px auto 0', width: 100, height: 3,
