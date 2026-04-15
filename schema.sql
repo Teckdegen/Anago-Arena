@@ -23,7 +23,7 @@ create index if not exists idx_users_total_points on users (total_points desc);
 create table if not exists game_scores (
   id             uuid        default gen_random_uuid() primary key,
   wallet_address text        not null,
-  game_id        text        not null,   -- 'basketball' | 'football'
+  game_id        text        not null,   -- 'basketball' | 'football' | 'tennis'
   best_score     integer     default 0,
   games_played   integer     default 0,
   games_won      integer     default 0,
