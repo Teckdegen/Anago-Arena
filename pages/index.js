@@ -42,7 +42,7 @@ export default function Landing() {
     if (saved) {
       try {
         const u = JSON.parse(saved)
-        if (u?.wallet && u?.username) { router.replace('/menu'); return }
+        if (u?.wallet && u?.username) { router.replace('/arena'); return }
       } catch {}
     }
   }, [mounted])
@@ -78,7 +78,7 @@ export default function Landing() {
     localStorage.setItem('bb_user', JSON.stringify({ wallet: address, username: trimmed }))
     if (!localStorage.getItem('bb_level'))  localStorage.setItem('bb_level', '1')
     if (!localStorage.getItem('bb_points')) localStorage.setItem('bb_points', '0')
-    router.push('/menu')
+    router.push('/arena')
   }
 
   // Don't render wallet UI until client-side to avoid SSR mismatch

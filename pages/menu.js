@@ -55,10 +55,8 @@ export default function Menu() {
     if (!saved) { router.push('/'); return }
     const u = JSON.parse(saved)
     setUser(u)
-    const lvl = parseInt(localStorage.getItem('bb_level') || '1')
-    setLevel(lvl)
-    setTotalPoints(parseInt(localStorage.getItem('bb_points') || '0'))
-    setLevelTheme({ season: getSeasonForLevel(lvl) })
+    // Redirect to arena hub
+    router.replace('/arena')
   }, [])
 
   async function openRooms() {
