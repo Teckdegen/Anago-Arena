@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Head from 'next/head'
 import dynamic from 'next/dynamic'
 import GameLobby from '../../components/GameLobby'
 import { upsertGameScore } from '../../lib/supabase'
-import { TrophyIcon, SkullIcon } from '../../components/Icons'
+import { TrophyIcon, SkullIcon, ArrowLeftIcon } from '../../components/Icons'
 
 const PongCanvas = dynamic(() => import('../../components/games/PongCanvas'), { ssr: false })
 
 export default function PongPage() {
+  const router = useRouter()
   const [gameState, setGameState] = useState('lobby')
   const [gameConfig, setGameConfig] = useState(null)
   const [result, setResult] = useState(null)
@@ -22,12 +24,15 @@ export default function PongPage() {
       showResult: async (winner, finalScores) => {
         setResult({ winner, scores: finalScores })
         setGameState('result')
-        const saved = localStorage.getItem('bb_user')
-        if (saved) {
-          const u = JSON.parse(saved)
+        const s = localStorage.getItem('bb_user')
+        if (s) {
+          const u = JSON.parse(s)
           await upsertGameScore(u.wallet, 'pong', { score: finalScores[0], won: winner === 0 })
-          const old = parseInt(localStorage.getItem('bb_points') || '0')
-          localStorage.setItem('bb_points', String(old + (winner === 0 ? 50 : 10)))
+          // Only add points to player if they won
+          if (winner === 0) {
+            const old = parseInt(localStorage.getItem('bb_points') || '0')
+            localStorage.setItem('bb_points', String(old + 50))
+          }
         }
       },
     }
@@ -48,9 +53,19 @@ export default function PongPage() {
     <>
       <Head><title>Paw Pong – ANAGO ARENA</title></Head>
       <div className="fixed top-0 left-0 right-0 z-10 flex justify-between items-center p-3 pointer-events-none">
-        <div className="hud-panel"><p className="hud-score" style={{ color: '#5B3FDB' }}>❤️ {scores[0]}</p></div>
+        <div className="hud-panel"><p className="hud-score" style={{ color: '#5B3FDB' }}>♥ {scores[0]}</p></div>
         <div className="hud-panel"><p className="hud-score" style={{ fontSize: 8, color: '#F4A0A0' }}>LIVES</p></div>
-        <div className="hud-panel"><p className="hud-score" style={{ color: '#F4A0A0' }}>❤️ {scores[1]}</p></div>
+        <div className="hud-panel"><p className="hud-score" style={{ color: '#F4A0A0' }}>♥ {scores[1]}</p></div>
+      </div>
+      {/* Quit button */}
+      <div className="fixed bottom-4 left-1/2 z-20 pointer-events-auto" style={{ transform: 'translateX(-50%)' }}>
+        <button
+          className="btn-arcade purple"
+          style={{ fontSize: 8, padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setGameState('lobby'); setScores([3, 3]) }}
+        >
+          <ArrowLeftIcon size={14} color="#F5EFE0" /> QUIT
+        </button>
       </div>
       <PongCanvas config={gameConfig} />
     </>
@@ -67,9 +82,17 @@ export default function PongPage() {
         </h2>
         <div className="flex flex-col gap-3 mt-6">
           <button className="btn-arcade w-full" style={{ fontSize: 10, background: '#5B3FDB' }}
-            onClick={() => { setGameState('playing'); setScores([3,3]); setResult(null) }}>PLAY AGAIN</button>
+            onClick={() => { setGameState('playing'); setScores([3, 3]); setResult(null) }}>
+            PLAY AGAIN
+          </button>
           <button className="btn-arcade purple w-full" style={{ fontSize: 10 }}
-            onClick={() => setGameState('lobby')}>LOBBY</button>
+            onClick={() => setGameState('lobby')}>
+            LOBBY
+          </button>
+          <button className="btn-arcade gold w-full" style={{ fontSize: 10 }}
+            onClick={() => router.push('/arena')}>
+            ← ALL GAMES
+          </button>
         </div>
       </div>
     </div>

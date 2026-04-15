@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Head from 'next/head'
 import dynamic from 'next/dynamic'
 import GameLobby from '../../components/GameLobby'
 import { upsertGameScore } from '../../lib/supabase'
-import { TrophyIcon, SkullIcon } from '../../components/Icons'
+import { TrophyIcon, SkullIcon, ArrowLeftIcon } from '../../components/Icons'
 
 const TowerCanvas = dynamic(() => import('../../components/games/TowerCanvas'), { ssr: false })
 
 export default function TowerPage() {
+  const router = useRouter()
   const [gameState, setGameState] = useState('lobby')
   const [gameConfig, setGameConfig] = useState(null)
   const [result, setResult] = useState(null)
@@ -26,8 +28,11 @@ export default function TowerPage() {
         if (s) {
           const u = JSON.parse(s)
           await upsertGameScore(u.wallet, 'tower', { score: finalScores[0], won: winner === 0 })
-          const old = parseInt(localStorage.getItem('bb_points') || '0')
-          localStorage.setItem('bb_points', String(old + (winner === 0 ? 50 : 10)))
+          // Only add points if player won
+          if (winner === 0) {
+            const old = parseInt(localStorage.getItem('bb_points') || '0')
+            localStorage.setItem('bb_points', String(old + 50))
+          }
         }
       },
     }
@@ -52,6 +57,16 @@ export default function TowerPage() {
         <div className="hud-panel"><p className="hud-score" style={{ fontSize: 8, color: '#F4A0A0' }}>BARK TOWER</p></div>
         <div className="hud-panel"><p className="hud-score" style={{ color: '#F4A0A0' }}>{gameConfig?.mode === 'pvp' ? (gameConfig.opponent || 'P2') : 'AI'}: {scores[1]}</p></div>
       </div>
+      {/* Quit button */}
+      <div className="fixed bottom-4 left-1/2 z-20 pointer-events-auto" style={{ transform: 'translateX(-50%)' }}>
+        <button
+          className="btn-arcade purple"
+          style={{ fontSize: 8, padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => { setGameState('lobby'); setScores([0, 0]) }}
+        >
+          <ArrowLeftIcon size={14} color="#F5EFE0" /> QUIT
+        </button>
+      </div>
       <TowerCanvas config={gameConfig} />
     </>
   )
@@ -68,9 +83,17 @@ export default function TowerPage() {
         <p className="font-arcade mt-3" style={{ fontSize: 12, color: '#F5EFE0' }}>Height: {result.scores[0]} blocks</p>
         <div className="flex flex-col gap-3 mt-6">
           <button className="btn-arcade w-full" style={{ fontSize: 10, background: '#76D7C4', color: '#2D2D2D' }}
-            onClick={() => { setGameState('playing'); setScores([0,0]); setResult(null) }}>PLAY AGAIN</button>
+            onClick={() => { setGameState('playing'); setScores([0, 0]); setResult(null) }}>
+            PLAY AGAIN
+          </button>
           <button className="btn-arcade purple w-full" style={{ fontSize: 10 }}
-            onClick={() => setGameState('lobby')}>LOBBY</button>
+            onClick={() => setGameState('lobby')}>
+            LOBBY
+          </button>
+          <button className="btn-arcade gold w-full" style={{ fontSize: 10 }}
+            onClick={() => router.push('/arena')}>
+            ← ALL GAMES
+          </button>
         </div>
       </div>
     </div>

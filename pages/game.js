@@ -68,13 +68,17 @@ export default function GamePage() {
         if (saved) {
           const u = JSON.parse(saved)
           const lvl = parseInt(localStorage.getItem('bb_level') || '1')
+          // Only award points to the player if they won (winnerIdx === 0 = player)
+          const playerPoints = winnerIdx === 0 ? finalScores[0] : 0
           await updateUserStats(u.wallet, {
-            pointsEarned: finalScores[0],
+            pointsEarned: playerPoints,
             level: lvl,
             won: winnerIdx === 0,
           })
-          const oldPts = parseInt(localStorage.getItem('bb_points') || '0')
-          localStorage.setItem('bb_points', String(oldPts + finalScores[0]))
+          if (winnerIdx === 0) {
+            const oldPts = parseInt(localStorage.getItem('bb_points') || '0')
+            localStorage.setItem('bb_points', String(oldPts + finalScores[0]))
+          }
         }
       },
     }
