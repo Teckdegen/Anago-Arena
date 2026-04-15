@@ -1,658 +1,375 @@
 /**
- * FootballCanvas — 5v5 Top-Down 2D Football Game
- * config: { mode, roomId, side, opponent, formation }
+ * Dog Football — Captain Control System
+ * You control ONE player (your captain). Tap to move, tap teammate to pass,
+ * swipe toward goal to shoot. AI handles your other 4 players.
+ * 5v5 top-down 2D. 10 minute match.
  */
 import { useEffect, useRef } from 'react'
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const TEAM_AMBER   = '#C17A2A'
-const TEAM_PURPLE  = '#5B3FDB'
-const KEEPER_AMBER  = '#8B5010'
-const KEEPER_PURPLE = '#3A2490'
+// ── Constants ─────────────────────────────────────────────────────────────────
+const P_R        = 20      // player radius
+const B_R        = 10      // ball radius
+const FRICTION   = 0.96
+const P_SPEED    = 3.8
+const AI_SPEED   = 3.2
+const GAME_SEC   = 600     // 10 minutes
+const GOAL_W     = 18      // goal post depth
+const OWN_RANGE  = 28      // distance to own the ball
+const WIN_GOALS  = 99      // no goal limit — timer decides
 
-const PLAYER_R     = 18
-const BALL_R       = 10
-const FRICTION     = 0.97
-const PLAYER_SPEED = 3.2
-const AI_SPEED     = 2.9
-const GAME_SEC     = 600
-const GOAL_POST_W  = 16
-const BALL_OWN_R   = 22   // radius for ball ownership
-const KEEPER_PASS_LIMIT = 6  // seconds keeper can hold ball
-const THROW_IN_GRACE    = 2  // seconds ball can't go out after throw-in
-const DRIBBLE_SPEED_MUL = 1.8
-const DRIBBLE_DURATION  = 1.5
-const DRIBBLE_COOLDOWN  = 3.0
-const INTERCEPT_WIDTH   = 30  // px either side of pass line
-
-// ─── FORMATIONS (5 players: GK + 4) ──────────────────────────────────────────
-// [xFrac, yFrac]: xFrac 0=own goal, 1=midfield; yFrac 0=top, 1=bottom
+// Formations: [xFrac, yFrac] — xFrac 0=own goal, 1=midfield
 const FORMATIONS = {
-  '1-2-1': [
-    [0.04, 0.50],               // GK
-    [0.25, 0.30],[0.25, 0.70],  // DEF
-    [0.50, 0.50],               // MID
-    [0.75, 0.50],               // FWD
-  ],
-  '1-1-2': [
-    [0.04, 0.50],
-    [0.25, 0.50],
-    [0.50, 0.50],
-    [0.75, 0.30],[0.75, 0.70],
-  ],
-  '1-3-0': [
-    [0.04, 0.50],
-    [0.30, 0.20],[0.30, 0.50],[0.30, 0.80],
-    [0.55, 0.50],
-  ],
+  '1-2-1': [[0.05,0.50],[0.28,0.28],[0.28,0.72],[0.55,0.50],[0.80,0.50]],
+  '1-1-2': [[0.05,0.50],[0.28,0.50],[0.55,0.50],[0.78,0.28],[0.78,0.72]],
+  '1-3-0': [[0.05,0.50],[0.30,0.20],[0.30,0.50],[0.30,0.80],[0.60,0.50]],
+  '2-2-0': [[0.05,0.50],[0.22,0.28],[0.22,0.72],[0.50,0.28],[0.50,0.72]],
 }
 
-// Which indices are "forwards" (allowed in opponent pen area)
-const FORWARD_INDICES = {
-  '1-2-1': [4],
-  '1-1-2': [3, 4],
-  '1-3-0': [],
-}
+const AMBER  = '#C17A2A'
+const PURPLE = '#5B3FDB'
+const AMBER_K  = '#7A4A10'
+const PURPLE_K = '#2A1870'
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y) }
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
-
-function pointToSegmentDist(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay
-  const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.hypot(px - ax, py - ay)
-  const t = clamp(((px - ax) * dx + (py - ay) * dy) / lenSq, 0, 1)
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const d2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
+const norm = (dx, dy) => { const d = Math.hypot(dx, dy) || 1; return [dx/d, dy/d] }
 
 function buildTeam(formation, side, CW, CH) {
-  const fmKey = FORMATIONS[formation] ? formation : '1-2-1'
-  const positions = FORMATIONS[fmKey]
-  const halfW = CW / 2
-  const isLeft = side === 'left'
-  const color  = isLeft ? TEAM_AMBER   : TEAM_PURPLE
-  const kColor = isLeft ? KEEPER_AMBER : KEEPER_PURPLE
-
-  return positions.map((pos, i) => {
-    const [xf, yf] = pos
-    const localX = xf * halfW
-    const worldX = isLeft ? localX : CW - localX
-    const worldY = yf * CH
-
+  const pts = FORMATIONS[formation] || FORMATIONS['1-2-1']
+  const isL = side === 'left'
+  return pts.map((pos, i) => {
+    const wx = isL ? pos[0] * CW/2 : CW - pos[0] * CW/2
+    const wy = pos[1] * CH
     return {
-      id: i,
-      x: worldX, y: worldY,
-      vx: 0, vy: 0,
-      homeX: worldX, homeY: worldY,
+      id: i, x: wx, y: wy, vx: 0, vy: 0,
+      homeX: wx, homeY: wy,
       isKeeper: i === 0,
-      color: i === 0 ? kColor : color,
-      number: i === 0 ? 'GK' : String(i),
-      side,
-      selected: false,
-      hasBall: false,
-      offside: false,
-      keeperHoldTimer: 0,
-      keeperHasBall: false,
+      color: i === 0 ? (isL ? AMBER_K : PURPLE_K) : (isL ? AMBER : PURPLE),
+      num: i === 0 ? 'GK' : String(i),
+      side, selected: false,
     }
   })
 }
 
-// ─── FIELD DRAWING ────────────────────────────────────────────────────────────
+// ── Draw Field ────────────────────────────────────────────────────────────────
 function drawField(ctx, CW, CH) {
-  ctx.fillStyle = '#2E7D32'
-  ctx.fillRect(0, 0, CW, CH)
+  ctx.fillStyle = '#2E7D32'; ctx.fillRect(0, 0, CW, CH)
   ctx.fillStyle = '#276B2B'
-  const sw = CW / 10
-  for (let i = 0; i < 10; i += 2) ctx.fillRect(i * sw, 0, sw, CH)
+  for (let i = 0; i < 10; i += 2) ctx.fillRect(i * CW/10, 0, CW/10, CH)
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
-  ctx.lineWidth = 2
-  ctx.strokeRect(4, 4, CW - 8, CH - 8)
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2
+  ctx.strokeRect(4, 4, CW-8, CH-8)
+  ctx.beginPath(); ctx.moveTo(CW/2, 4); ctx.lineTo(CW/2, CH-4); ctx.stroke()
+  ctx.beginPath(); ctx.arc(CW/2, CH/2, CH*0.12, 0, Math.PI*2); ctx.stroke()
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'
+  ctx.beginPath(); ctx.arc(CW/2, CH/2, 4, 0, Math.PI*2); ctx.fill()
 
-  // Halfway
-  ctx.beginPath(); ctx.moveTo(CW / 2, 4); ctx.lineTo(CW / 2, CH - 4); ctx.stroke()
-
-  // Centre circle
-  ctx.beginPath(); ctx.arc(CW / 2, CH / 2, CH * 0.12, 0, Math.PI * 2); ctx.stroke()
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.beginPath(); ctx.arc(CW / 2, CH / 2, 4, 0, Math.PI * 2); ctx.fill()
-
-  // Penalty areas: x from goal line to CW*0.18, height CH*0.5 centered
-  const penW = CW * 0.18
-  const penH = CH * 0.50
-  const penY = (CH - penH) / 2
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)'
-  ctx.strokeRect(4, penY, penW, penH)
-  ctx.strokeRect(CW - 4 - penW, penY, penW, penH)
+  // Penalty areas
+  const pw = CW*0.18, ph = CH*0.50, py = (CH-ph)/2
+  ctx.strokeRect(4, py, pw, ph)
+  ctx.strokeRect(CW-4-pw, py, pw, ph)
 
   // Goal areas
-  const gaW = CW * 0.07
-  const gaH = CH * 0.28
-  const gaY = (CH - gaH) / 2
-  ctx.strokeRect(4, gaY, gaW, gaH)
-  ctx.strokeRect(CW - 4 - gaW, gaY, gaW, gaH)
+  const gw = CW*0.07, gh = CH*0.28, gy = (CH-gh)/2
+  ctx.strokeRect(4, gy, gw, gh)
+  ctx.strokeRect(CW-4-gw, gy, gw, gh)
 
   // Penalty spots
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'
-  ctx.beginPath(); ctx.arc(CW * 0.14, CH / 2, 3, 0, Math.PI * 2); ctx.fill()
-  ctx.beginPath(); ctx.arc(CW * 0.86, CH / 2, 3, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'
+  ctx.beginPath(); ctx.arc(CW*0.14, CH/2, 3, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc(CW*0.86, CH/2, 3, 0, Math.PI*2); ctx.fill()
 
   // Corner arcs
   const cr = 14
-  const corners = [[4,4,0,Math.PI/2],[CW-4,4,Math.PI/2,Math.PI],[CW-4,CH-4,Math.PI,Math.PI*1.5],[4,CH-4,Math.PI*1.5,Math.PI*2]]
-  for (const [cx, cy, sa, ea] of corners) {
+  for (const [cx,cy,sa,ea] of [[4,4,0,Math.PI/2],[CW-4,4,Math.PI/2,Math.PI],[CW-4,CH-4,Math.PI,Math.PI*1.5],[4,CH-4,Math.PI*1.5,Math.PI*2]]) {
     ctx.beginPath(); ctx.arc(cx, cy, cr, sa, ea); ctx.stroke()
   }
 }
 
-function drawGoals(ctx, CW, CH, GOAL_H) {
-  const goalY = (CH - GOAL_H) / 2
-  // Left
-  ctx.fillStyle = 'rgba(193,122,42,0.25)'
-  ctx.fillRect(0, goalY, GOAL_POST_W, GOAL_H)
-  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3
-  ctx.strokeRect(0, goalY, GOAL_POST_W, GOAL_H)
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1
-  for (let i = 1; i < 4; i++) {
-    ctx.beginPath(); ctx.moveTo(0, goalY + GOAL_H * i / 4); ctx.lineTo(GOAL_POST_W, goalY + GOAL_H * i / 4); ctx.stroke()
-  }
-  // Right
-  ctx.fillStyle = 'rgba(91,63,219,0.25)'
-  ctx.fillRect(CW - GOAL_POST_W, goalY, GOAL_POST_W, GOAL_H)
-  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3
-  ctx.strokeRect(CW - GOAL_POST_W, goalY, GOAL_POST_W, GOAL_H)
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1
-  for (let i = 1; i < 4; i++) {
-    ctx.beginPath(); ctx.moveTo(CW - GOAL_POST_W, goalY + GOAL_H * i / 4); ctx.lineTo(CW, goalY + GOAL_H * i / 4); ctx.stroke()
+function drawGoals(ctx, CW, CH, GH) {
+  const gy = (CH-GH)/2
+  for (const [gx, col] of [[0, 'rgba(193,122,42,0.3)'], [CW-GOAL_W, 'rgba(91,63,219,0.3)']]) {
+    ctx.fillStyle = col; ctx.fillRect(gx, gy, GOAL_W, GH)
+    ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3
+    ctx.strokeRect(gx, gy, GOAL_W, GH)
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(gx, gy+GH*i/4); ctx.lineTo(gx+GOAL_W, gy+GH*i/4); ctx.stroke()
+    }
   }
 }
 
-// ─── PLAYER DRAWING ───────────────────────────────────────────────────────────
-function drawPlayer(ctx, p, hasBall) {
-  ctx.save()
-  ctx.translate(p.x, p.y)
+// ── Draw Player ───────────────────────────────────────────────────────────────
+function drawPlayer(ctx, p, isCaptain, hasBall) {
+  ctx.save(); ctx.translate(p.x, p.y)
 
-  // Offside tint
-  if (p.offside) {
-    ctx.globalAlpha = 0.85
-  }
-
-  // Ball glow
+  // Ball ownership glow
   if (hasBall) {
-    ctx.shadowColor = '#FFD700'
-    ctx.shadowBlur = 14
-    ctx.strokeStyle = '#FFD700'
-    ctx.lineWidth = 3
-    ctx.beginPath(); ctx.arc(0, 0, PLAYER_R + 6, 0, Math.PI * 2); ctx.stroke()
+    ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 16
+    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(0, 0, P_R+7, 0, Math.PI*2); ctx.stroke()
     ctx.shadowBlur = 0
   }
 
-  // Selection ring
-  if (p.selected) {
-    ctx.strokeStyle = '#FFFFFF'
-    ctx.lineWidth = 3
-    ctx.beginPath(); ctx.arc(0, 0, PLAYER_R + 5, 0, Math.PI * 2); ctx.stroke()
-  }
-
-  // Offside red ring
-  if (p.offside) {
-    ctx.strokeStyle = '#FF3333'
-    ctx.lineWidth = 2
-    ctx.beginPath(); ctx.arc(0, 0, PLAYER_R + 8, 0, Math.PI * 2); ctx.stroke()
+  // Captain ring (white pulsing)
+  if (isCaptain) {
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(0, 0, P_R+5, 0, Math.PI*2); ctx.stroke()
   }
 
   // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.18)'
-  ctx.beginPath(); ctx.ellipse(0, PLAYER_R + 2, PLAYER_R * 0.8, 5, 0, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'
+  ctx.beginPath(); ctx.ellipse(0, P_R+2, P_R*0.8, 5, 0, 0, Math.PI*2); ctx.fill()
 
   // Body
-  ctx.fillStyle = p.color
-  ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 2
-  ctx.beginPath(); ctx.arc(0, 0, PLAYER_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = p.color; ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 2.5
+  ctx.beginPath(); ctx.arc(0, 0, P_R, 0, Math.PI*2); ctx.fill(); ctx.stroke()
 
   // Ears
   ctx.fillStyle = p.color
-  ctx.beginPath(); ctx.ellipse(-PLAYER_R * 0.7, -PLAYER_R * 0.7, 5, 8, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-  ctx.beginPath(); ctx.ellipse( PLAYER_R * 0.7, -PLAYER_R * 0.7, 5, 8,  0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.beginPath(); ctx.ellipse(-P_R*0.68, -P_R*0.68, 5, 9, -0.5, 0, Math.PI*2); ctx.fill(); ctx.stroke()
+  ctx.beginPath(); ctx.ellipse( P_R*0.68, -P_R*0.68, 5, 9,  0.5, 0, Math.PI*2); ctx.fill(); ctx.stroke()
 
   // Eyes
   ctx.fillStyle = '#1A1A1A'
-  ctx.beginPath(); ctx.arc(-6, -4, 3, 0, Math.PI * 2); ctx.fill()
-  ctx.beginPath(); ctx.arc( 6, -4, 3, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(-7, -5, 3.5, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc( 7, -5, 3.5, 0, Math.PI*2); ctx.fill()
   ctx.fillStyle = '#FFF'
-  ctx.beginPath(); ctx.arc(-5, -5, 1.2, 0, Math.PI * 2); ctx.fill()
-  ctx.beginPath(); ctx.arc( 7, -5, 1.2, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(-5.5, -6.5, 1.5, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc( 8.5, -6.5, 1.5, 0, Math.PI*2); ctx.fill()
 
   // Snout
   ctx.fillStyle = '#C4956A'; ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 1.5
-  ctx.beginPath(); ctx.ellipse(0, 2, 7, 5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.beginPath(); ctx.ellipse(0, 3, 8, 6, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke()
   ctx.fillStyle = '#1A1A1A'
-  ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(0, 1, 3, 0, Math.PI*2); ctx.fill()
 
   // Number
-  ctx.fillStyle = '#FFFFFF'
-  ctx.font = p.isKeeper ? 'bold 7px sans-serif' : 'bold 8px sans-serif'
+  ctx.fillStyle = '#FFF'; ctx.font = 'bold 9px sans-serif'
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(p.number, 0, 9)
+  ctx.fillText(p.num, 0, 10)
 
   ctx.restore()
 }
 
+// ── Draw Ball ─────────────────────────────────────────────────────────────────
 function drawBall(ctx, ball) {
-  ctx.fillStyle = 'rgba(0,0,0,0.22)'
-  ctx.beginPath(); ctx.ellipse(ball.x + 3, ball.y + BALL_R + 2, BALL_R * 0.9, 5, 0, 0, Math.PI * 2); ctx.fill()
-  ctx.save()
-  ctx.translate(ball.x, ball.y)
-  ctx.rotate(ball.spin)
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'
+  ctx.beginPath(); ctx.ellipse(ball.x+3, ball.y+B_R+2, B_R*0.9, 5, 0, 0, Math.PI*2); ctx.fill()
+  ctx.save(); ctx.translate(ball.x, ball.y); ctx.rotate(ball.spin)
   ctx.fillStyle = '#F5EFE0'; ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 1.5
-  ctx.beginPath(); ctx.arc(0, 0, BALL_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.beginPath(); ctx.arc(0, 0, B_R, 0, Math.PI*2); ctx.fill(); ctx.stroke()
   ctx.fillStyle = '#1A1A1A'
-  ctx.beginPath(); ctx.arc(0, 0, BALL_R * 0.28, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(0, 0, B_R*0.28, 0, Math.PI*2); ctx.fill()
   for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2 - Math.PI / 2
-    ctx.beginPath(); ctx.arc(Math.cos(a) * BALL_R * 0.6, Math.sin(a) * BALL_R * 0.6, BALL_R * 0.16, 0, Math.PI * 2); ctx.fill()
+    const a = (i/5)*Math.PI*2 - Math.PI/2
+    ctx.beginPath(); ctx.arc(Math.cos(a)*B_R*0.6, Math.sin(a)*B_R*0.6, B_R*0.16, 0, Math.PI*2); ctx.fill()
   }
   ctx.restore()
 }
 
-// ─── HUD ──────────────────────────────────────────────────────────────────────
-function drawHUD(ctx, CW, CH, scores, timeLeft, formation, flashMsg, flashAlpha, dribble) {
+// ── Draw Pass Preview ─────────────────────────────────────────────────────────
+function drawPassLine(ctx, from, to) {
+  ctx.save()
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+  ctx.lineWidth = 2; ctx.setLineDash([8, 6])
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke()
+  ctx.setLineDash([])
+  // Arrow tip
+  const [nx, ny] = norm(to.x-from.x, to.y-from.y)
+  const ax = to.x - nx*16, ay = to.y - ny*16
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.beginPath()
+  ctx.moveTo(to.x, to.y)
+  ctx.lineTo(ax + ny*8, ay - nx*8)
+  ctx.lineTo(ax - ny*8, ay + nx*8)
+  ctx.closePath(); ctx.fill()
+  ctx.restore()
+}
+
+// ── Draw Shoot Arrow ──────────────────────────────────────────────────────────
+function drawShootArrow(ctx, from, to) {
+  ctx.save()
+  const [nx, ny] = norm(to.x-from.x, to.y-from.y)
+  const len = Math.min(d2(from, to), 200)
+  const ex = from.x + nx*len, ey = from.y + ny*len
+
+  ctx.strokeStyle = '#FF6B35'; ctx.lineWidth = 3; ctx.setLineDash([6,4])
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(ex, ey); ctx.stroke()
+  ctx.setLineDash([])
+
+  ctx.fillStyle = '#FF6B35'
+  ctx.beginPath()
+  ctx.moveTo(ex, ey)
+  ctx.lineTo(ex - nx*18 + ny*10, ey - ny*18 - nx*10)
+  ctx.lineTo(ex - nx*18 - ny*10, ey - ny*18 + nx*10)
+  ctx.closePath(); ctx.fill()
+  ctx.restore()
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function drawHUD(ctx, CW, CH, scores, timeLeft, formation, flash) {
   // Score box
-  ctx.fillStyle = 'rgba(15,8,40,0.82)'
+  ctx.fillStyle = 'rgba(15,8,40,0.85)'
   ctx.strokeStyle = '#2D2D2D'; ctx.lineWidth = 3
-  ctx.beginPath(); ctx.roundRect(CW / 2 - 90, 8, 180, 50, 10); ctx.fill(); ctx.stroke()
-  ctx.fillStyle = '#F5EFE0'
-  ctx.font = "bold 20px 'Press Start 2P', monospace"
+  ctx.beginPath(); ctx.roundRect(CW/2-95, 8, 190, 52, 10); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#F5EFE0'; ctx.font = "bold 22px 'Press Start 2P', monospace"
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(`${scores[0]}  –  ${scores[1]}`, CW / 2, 28)
-  const mins = Math.floor(timeLeft / 60)
-  const secs = Math.ceil(timeLeft % 60)
+  ctx.fillText(`${scores[0]}  –  ${scores[1]}`, CW/2, 28)
+  const m = Math.floor(timeLeft/60), s = Math.ceil(timeLeft%60)
   ctx.font = "8px 'Press Start 2P', monospace"
   ctx.fillStyle = timeLeft <= 60 ? '#FF6B6B' : '#A0C4FF'
-  ctx.fillText(`${mins}:${String(secs).padStart(2, '0')}`, CW / 2, 48)
+  ctx.fillText(`${m}:${String(s).padStart(2,'0')}`, CW/2, 50)
 
-  // Formation label
+  // Formation
   ctx.font = "7px 'Press Start 2P', monospace"
-  ctx.fillStyle = 'rgba(255,255,255,0.55)'
-  ctx.textAlign = 'left'
-  ctx.fillText(formation || '1-2-1', 10, 20)
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.textAlign = 'left'
+  ctx.fillText(formation, 10, 22)
 
-  // Flash message (GOAL!, OFFSIDE!, THROW-IN)
-  if (flashMsg && flashAlpha > 0) {
-    ctx.save()
-    ctx.globalAlpha = Math.min(1, flashAlpha)
-    const isGoal = flashMsg.includes('GOAL')
-    ctx.fillStyle = isGoal ? 'rgba(240,180,41,0.28)' : 'rgba(0,0,0,0.18)'
+  // Controls hint
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.textAlign = 'center'
+  ctx.fillText('TAP=MOVE  TAP TEAMMATE=PASS  SWIPE=SHOOT', CW/2, CH-12)
+
+  // Flash
+  if (flash.alpha > 0) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, flash.alpha)
+    const isGoal = flash.msg.includes('GOAL')
+    ctx.fillStyle = isGoal ? 'rgba(240,180,41,0.3)' : 'rgba(0,0,0,0.2)'
     ctx.fillRect(0, 0, CW, CH)
-    ctx.fillStyle = isGoal ? '#F0B429' : flashMsg.includes('OFFSIDE') ? '#FF4444' : '#FFFFFF'
-    ctx.font = "bold 26px 'Press Start 2P', monospace"
+    ctx.fillStyle = isGoal ? '#F0B429' : flash.msg.includes('OFFSIDE') ? '#FF4444' : '#FFF'
+    ctx.font = "bold 28px 'Press Start 2P', monospace"
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.shadowColor = '#000'; ctx.shadowBlur = 8
-    ctx.fillText(flashMsg, CW / 2, CH / 2)
-    ctx.shadowBlur = 0
-    ctx.restore()
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 10
+    ctx.fillText(flash.msg, CW/2, CH/2)
+    ctx.shadowBlur = 0; ctx.restore()
   }
-
-  // Dribble button
-  drawDribbleButton(ctx, CW, CH, dribble)
 }
 
-function drawDribbleButton(ctx, CW, CH, dribble) {
-  const bx = CW / 2
-  const by = CH - 44
-  const bw = 110, bh = 36, br = 10
-
-  const isActive = dribble.active
-  const onCooldown = dribble.cooldown > 0
-
-  ctx.save()
-  // Glow when active
-  if (isActive) {
-    ctx.shadowColor = '#C17A2A'
-    ctx.shadowBlur = 18
-  }
-
-  ctx.fillStyle = isActive ? '#C17A2A' : onCooldown ? '#555' : '#8B5010'
-  ctx.strokeStyle = isActive ? '#FFD700' : '#2D2D2D'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.roundRect(bx - bw / 2, by - bh / 2, bw, bh, br)
-  ctx.fill(); ctx.stroke()
-  ctx.shadowBlur = 0
-
-  ctx.fillStyle = isActive ? '#FFD700' : onCooldown ? '#999' : '#F5EFE0'
-  ctx.font = "bold 9px 'Press Start 2P', monospace"
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText('DRIBBLE', bx, by)
-
-  // Cooldown bar
-  if (onCooldown && !isActive) {
-    const pct = 1 - dribble.cooldown / DRIBBLE_COOLDOWN
-    ctx.fillStyle = 'rgba(255,255,255,0.15)'
-    ctx.beginPath(); ctx.roundRect(bx - bw / 2 + 4, by + 10, bw - 8, 6, 3); ctx.fill()
-    ctx.fillStyle = '#C17A2A'
-    ctx.beginPath(); ctx.roundRect(bx - bw / 2 + 4, by + 10, (bw - 8) * pct, 6, 3); ctx.fill()
-  }
-
-  // Active timer bar
-  if (isActive) {
-    const pct = dribble.timer / DRIBBLE_DURATION
-    ctx.fillStyle = 'rgba(255,255,255,0.2)'
-    ctx.beginPath(); ctx.roundRect(bx - bw / 2 + 4, by + 10, bw - 8, 6, 3); ctx.fill()
-    ctx.fillStyle = '#FFD700'
-    ctx.beginPath(); ctx.roundRect(bx - bw / 2 + 4, by + 10, (bw - 8) * pct, 6, 3); ctx.fill()
-  }
-
-  ctx.restore()
-}
-
-function drawKeeperTimer(ctx, keeper, timer) {
-  if (timer <= 0) return
-  ctx.save()
-  ctx.fillStyle = timer < 2 ? '#FF4444' : '#FFD700'
-  ctx.font = "bold 10px 'Press Start 2P', monospace"
-  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-  ctx.fillText(Math.ceil(timer) + 's', keeper.x, keeper.y - PLAYER_R - 6)
-  ctx.restore()
-}
-
-function drawThrowInIndicator(ctx, player) {
-  if (!player) return
-  ctx.save()
-  ctx.strokeStyle = '#FFFFFF'
-  ctx.lineWidth = 2
-  ctx.setLineDash([4, 4])
-  ctx.beginPath(); ctx.arc(player.x, player.y, PLAYER_R + 10, 0, Math.PI * 2); ctx.stroke()
-  ctx.setLineDash([])
-  ctx.restore()
-}
-
-// ─── PENALTY AREA HELPERS ─────────────────────────────────────────────────────
-function getPenaltyArea(side, CW, CH) {
-  const penW = CW * 0.18
-  const penH = CH * 0.50
-  const penY = (CH - penH) / 2
-  if (side === 'left') return { x1: 0, x2: penW, y1: penY, y2: penY + penH }
-  return { x1: CW - penW, x2: CW, y1: penY, y2: penY + penH }
-}
-
-function inPenaltyArea(px, py, side, CW, CH) {
-  const a = getPenaltyArea(side, CW, CH)
-  return px >= a.x1 && px <= a.x2 && py >= a.y1 && py <= a.y2
-}
-
-// ─── OFFSIDE CHECK ────────────────────────────────────────────────────────────
-// Returns list of player ids that are offside for the attacking team
-function getOffsidePlayers(attackers, defenders, ball, attackSide, CW) {
-  // Only applies in opponent's half
-  const midX = CW / 2
-  const offside = []
-
-  // Second-to-last defender (last = keeper usually)
-  const defXs = defenders.map(d => d.x).sort((a, b) =>
-    attackSide === 'left' ? b - a : a - b  // sort by proximity to attacker's goal
-  )
-  // second-to-last defender line
-  const secondLastX = defXs[1] ?? defXs[0]
-
-  for (const p of attackers) {
-    if (p.isKeeper) continue
-    const inOpponentHalf = attackSide === 'left' ? p.x > midX : p.x < midX
-    if (!inOpponentHalf) continue
-    // Closer to opponent goal than second-to-last defender?
-    const isOffside = attackSide === 'left'
-      ? p.x > secondLastX
-      : p.x < secondLastX
-    if (isOffside) offside.push(p.id)
-  }
-  return offside
-}
-
-// ─── PASS INTERCEPTION ───────────────────────────────────────────────────────
-// Returns the first opponent in the path of a kick, or null
-function findInterceptor(fromX, fromY, toX, toY, opponents) {
-  for (const opp of opponents) {
-    const d = pointToSegmentDist(opp.x, opp.y, fromX, fromY, toX, toY)
-    if (d < INTERCEPT_WIDTH) return opp
-  }
-  return null
-}
-
-// ─── AI SYSTEM ────────────────────────────────────────────────────────────────
-function updateAI(team, opponents, ball, side, CW, CH, GOAL_H, formation) {
-  const isLeft = side === 'left'
-  const ownGoalX  = isLeft ? 0 : CW
-  const oppGoalX  = isLeft ? CW : 0
-  const penArea   = getPenaltyArea(side, CW, CH)
-  const oppPenArea = getPenaltyArea(isLeft ? 'right' : 'left', CW, CH)
+// ── AI System ─────────────────────────────────────────────────────────────────
+function updateAI(team, opponents, ball, side, CW, CH, GH) {
+  const isL = side === 'left'
+  const oppGoalX = isL ? CW : 0
+  const ownGoalX = isL ? 0 : CW
 
   // Find nearest outfield player to ball
-  let nearestIdx = 1, nearestDist = Infinity
+  let nearIdx = 1, nearDist = Infinity
   for (let i = 1; i < team.length; i++) {
-    const d = dist(team[i], ball)
-    if (d < nearestDist) { nearestDist = d; nearestIdx = i }
+    const dd = d2(team[i], ball)
+    if (dd < nearDist) { nearDist = dd; nearIdx = i }
   }
-
-  // Offside trap: don't push forwards past second-to-last opponent
-  const oppXs = opponents.filter(o => !o.isKeeper).map(o => o.x).sort((a, b) => isLeft ? b - a : a - b)
-  const offsideLine = oppXs[1] ?? (isLeft ? CW * 0.85 : CW * 0.15)
 
   team.forEach((p, i) => {
     if (p.isKeeper) {
-      // Keeper: stay in own penalty area, track ball Y
-      const keeperX = isLeft ? CW * 0.05 : CW * 0.95
-      const ballInOwnPen = inPenaltyArea(ball.x, ball.y, side, CW, CH)
-      const targetY = clamp(ball.y, penArea.y1 + PLAYER_R, penArea.y2 - PLAYER_R)
-      let targetX = keeperX
-      if (ballInOwnPen) {
-        targetX = clamp(ball.x, penArea.x1 + PLAYER_R, penArea.x2 - PLAYER_R)
-      }
-      const dx = targetX - p.x, dy = targetY - p.y
-      const d = Math.hypot(dx, dy) || 1
-      const spd = ballInOwnPen ? AI_SPEED * 1.5 : AI_SPEED
-      p.vx = (dx / d) * Math.min(spd, d)
-      p.vy = (dy / d) * Math.min(spd, d)
-
-      // Keeper has ball: pass to nearest teammate
-      if (p.keeperHasBall) {
-        let bestMate = null, bestD = Infinity
-        for (let j = 1; j < team.length; j++) {
-          const d2 = dist(team[j], p)
-          if (d2 < bestD) { bestD = d2; bestMate = team[j] }
-        }
-        if (bestMate) {
-          const dx2 = bestMate.x - ball.x, dy2 = bestMate.y - ball.y
-          const d2 = Math.hypot(dx2, dy2) || 1
-          ball.vx = (dx2 / d2) * 6
-          ball.vy = (dy2 / d2) * 6
-          p.keeperHasBall = false
-        }
-      }
+      // Keeper: stay near goal line, track ball Y
+      const kx = isL ? CW*0.06 : CW*0.94
+      const gy = (CH-GH)/2
+      const ty = clamp(ball.y, gy+P_R, gy+GH-P_R)
+      const ballClose = d2(p, ball) < 80
+      const tx = ballClose ? clamp(ball.x, isL ? P_R : CW*0.82, isL ? CW*0.18 : CW-P_R) : kx
+      const [nx, ny] = norm(tx-p.x, ty-p.y)
+      const spd = ballClose ? AI_SPEED*1.4 : AI_SPEED*0.8
+      p.vx = nx * Math.min(spd, d2(p, {x:tx,y:ty}))
+      p.vy = ny * Math.min(spd, d2(p, {x:tx,y:ty}))
       return
     }
 
-    let targetX, targetY
-
-    if (i === nearestIdx) {
-      // Chase ball
-      targetX = ball.x; targetY = ball.y
-      // If near ball and near opponent goal: shoot
-      const ballDist = dist(p, ball)
-      if (ballDist < BALL_OWN_R + 5) {
+    let tx, ty
+    if (i === nearIdx) {
+      tx = ball.x; ty = ball.y
+      // If near ball: decide shoot or pass
+      if (d2(p, ball) < OWN_RANGE + 8) {
         const goalDist = Math.abs(p.x - oppGoalX)
-        if (goalDist < CW * 0.35) {
-          const dx2 = oppGoalX - ball.x, dy2 = CH / 2 - ball.y
-          const d2 = Math.hypot(dx2, dy2) || 1
-          ball.vx = (dx2 / d2) * 9 + (Math.random() - 0.5) * 2
-          ball.vy = (dy2 / d2) * 9 + (Math.random() - 0.5) * 3
+        if (goalDist < CW * 0.38) {
+          // Shoot
+          const [nx, ny] = norm(oppGoalX - ball.x, CH/2 - ball.y)
+          ball.vx = nx*9 + (Math.random()-0.5)*2
+          ball.vy = ny*9 + (Math.random()-0.5)*3
         } else {
-          // Pass to nearest teammate not blocked
-          let bestMate = null, bestD = Infinity
+          // Pass to most forward open teammate
+          let best = null, bestX = isL ? -Infinity : Infinity
           for (let j = 1; j < team.length; j++) {
             if (j === i) continue
-            const interceptor = findInterceptor(ball.x, ball.y, team[j].x, team[j].y, opponents)
-            if (interceptor) continue
-            const d2 = dist(team[j], ball)
-            if (d2 < bestD) { bestD = d2; bestMate = team[j] }
+            const adv = isL ? team[j].x : CW - team[j].x
+            if (adv > (isL ? bestX : CW - bestX)) { bestX = isL ? team[j].x : CW - team[j].x; best = team[j] }
           }
-          if (bestMate) {
-            const dx2 = bestMate.x - ball.x, dy2 = bestMate.y - ball.y
-            const d2 = Math.hypot(dx2, dy2) || 1
-            const power = Math.min(8, bestD / 30)
-            ball.vx = (dx2 / d2) * power
-            ball.vy = (dy2 / d2) * power
+          if (best) {
+            const [nx, ny] = norm(best.x - ball.x, best.y - ball.y)
+            const pwr = Math.min(8, d2(ball, best) / 35)
+            ball.vx = nx*pwr; ball.vy = ny*pwr
           }
         }
       }
     } else {
-      // Hold formation with slight pressure
-      const pressure = 0.2
-      targetX = p.homeX + (ball.x - p.homeX) * pressure + (Math.random() - 0.5) * 30
-      targetY = p.homeY + (ball.y - p.homeY) * pressure + (Math.random() - 0.5) * 30
+      // Hold formation with pressure toward ball
+      tx = p.homeX + (ball.x - p.homeX) * 0.22
+      ty = p.homeY + (ball.y - p.homeY) * 0.22
     }
 
-    // Offside trap: clamp forward positions
-    if (isLeft) targetX = Math.min(targetX, offsideLine - 5)
-    else         targetX = Math.max(targetX, offsideLine + 5)
-
-    // Don't enter opponent penalty area unless forward
-    const fwdIdxs = FORWARD_INDICES[formation] || []
-    if (!fwdIdxs.includes(i)) {
-      if (isLeft) targetX = Math.min(targetX, oppPenArea.x1 - 5)
-      else         targetX = Math.max(targetX, oppPenArea.x2 + 5)
-    }
-
-    const dx = targetX - p.x, dy = targetY - p.y
-    const d = Math.hypot(dx, dy) || 1
-    const spd = AI_SPEED * (i === nearestIdx ? 1.0 : 0.65)
-    p.vx = (dx / d) * Math.min(spd, d)
-    p.vy = (dy / d) * Math.min(spd, d)
+    const [nx, ny] = norm(tx-p.x, ty-p.y)
+    const spd = AI_SPEED * (i === nearIdx ? 1.0 : 0.6)
+    p.vx = nx * Math.min(spd, d2(p, {x:tx,y:ty}))
+    p.vy = ny * Math.min(spd, d2(p, {x:tx,y:ty}))
   })
 }
 
-// ─── BALL PHYSICS ─────────────────────────────────────────────────────────────
-function updateBallPhysics(ball, CW, CH, GOAL_H, state) {
-  if (state.throwIn) return  // ball frozen during throw-in
-
-  ball.x += ball.vx
-  ball.y += ball.vy
-  ball.vx *= FRICTION
-  ball.vy *= FRICTION
+// ── Ball Physics ──────────────────────────────────────────────────────────────
+function updateBall(ball, CW, CH, GH) {
+  ball.x += ball.vx; ball.y += ball.vy
+  ball.vx *= FRICTION; ball.vy *= FRICTION
   ball.spin += ball.vx * 0.04
 
-  const goalTop    = (CH - GOAL_H) / 2
-  const goalBottom = (CH + GOAL_H) / 2
+  const gt = (CH-GH)/2, gb = (CH+GH)/2
 
-  // Top/bottom: throw-in
-  if (ball.y - BALL_R < 0) {
-    if (state.throwInGrace <= 0) {
-      state.throwIn = true
-      state.throwInSide = state.lastTouchSide === 'left' ? 'right' : 'left'
-      state.throwInPos = { x: clamp(ball.x, 20, CW - 20), y: 0 }
-      ball.y = BALL_R
-    } else {
-      ball.y = BALL_R; ball.vy *= -0.7
-    }
-  }
-  if (ball.y + BALL_R > CH) {
-    if (state.throwInGrace <= 0) {
-      state.throwIn = true
-      state.throwInSide = state.lastTouchSide === 'left' ? 'right' : 'left'
-      state.throwInPos = { x: clamp(ball.x, 20, CW - 20), y: CH }
-      ball.y = CH - BALL_R
-    } else {
-      ball.y = CH - BALL_R; ball.vy *= -0.7
-    }
-  }
+  if (ball.y - B_R < 0)  { ball.y = B_R;    ball.vy *= -0.65 }
+  if (ball.y + B_R > CH) { ball.y = CH-B_R; ball.vy *= -0.65 }
 
-  // Left/right walls (outside goal)
-  if (ball.x - BALL_R < GOAL_POST_W) {
-    if (ball.y < goalTop || ball.y > goalBottom) {
-      ball.x = GOAL_POST_W + BALL_R; ball.vx *= -0.7
-    }
+  if (ball.x - B_R < GOAL_W) {
+    if (ball.y < gt || ball.y > gb) { ball.x = GOAL_W+B_R; ball.vx *= -0.65 }
   }
-  if (ball.x + BALL_R > CW - GOAL_POST_W) {
-    if (ball.y < goalTop || ball.y > goalBottom) {
-      ball.x = CW - GOAL_POST_W - BALL_R; ball.vx *= -0.7
-    }
+  if (ball.x + B_R > CW - GOAL_W) {
+    if (ball.y < gt || ball.y > gb) { ball.x = CW-GOAL_W-B_R; ball.vx *= -0.65 }
   }
 }
 
-function checkGoal(ball, CW, CH, GOAL_H) {
-  const goalTop    = (CH - GOAL_H) / 2
-  const goalBottom = (CH + GOAL_H) / 2
-  if (ball.x - BALL_R < 0 && ball.y > goalTop && ball.y < goalBottom) return 1   // right scores
-  if (ball.x + BALL_R > CW && ball.y > goalTop && ball.y < goalBottom) return 0  // left scores
+function checkGoal(ball, CW, CH, GH) {
+  const gt = (CH-GH)/2, gb = (CH+GH)/2
+  if (ball.x - B_R < 0   && ball.y > gt && ball.y < gb) return 1  // right scores
+  if (ball.x + B_R > CW  && ball.y > gt && ball.y < gb) return 0  // left scores
   return -1
 }
 
 function resetBall(ball, CW, CH) {
-  ball.x = CW / 2; ball.y = CH / 2
-  ball.vx = (Math.random() > 0.5 ? 1 : -1) * 1.5
-  ball.vy = (Math.random() - 0.5) * 2
+  ball.x = CW/2; ball.y = CH/2
+  ball.vx = (Math.random()>0.5?1:-1)*1.5
+  ball.vy = (Math.random()-0.5)*2
   ball.spin = 0
 }
 
-// ─── PLAYER-BALL COLLISION ────────────────────────────────────────────────────
-function resolvePlayerBallCollisions(players, ball, state) {
+function resolveCollisions(players, ball) {
   for (const p of players) {
-    const dx = ball.x - p.x, dy = ball.y - p.y
-    const d  = Math.hypot(dx, dy)
-    const minD = PLAYER_R + BALL_R
-    if (d < minD && d > 0) {
-      const nx = dx / d, ny = dy / d
-      const relV = (ball.vx - p.vx) * nx + (ball.vy - p.vy) * ny
-      if (relV < 0) {
-        const imp = -relV * 1.5
-        ball.vx += nx * imp; ball.vy += ny * imp
-      }
-      const overlap = minD - d
-      ball.x += nx * overlap * 0.8; ball.y += ny * overlap * 0.8
-      state.lastTouchSide = p.side
+    const dx = ball.x-p.x, dy = ball.y-p.y
+    const dd = Math.hypot(dx, dy)
+    const minD = P_R + B_R
+    if (dd < minD && dd > 0) {
+      const nx = dx/dd, ny = dy/dd
+      const rv = (ball.vx-p.vx)*nx + (ball.vy-p.vy)*ny
+      if (rv < 0) { ball.vx += nx*(-rv*1.5); ball.vy += ny*(-rv*1.5) }
+      const ov = minD - dd
+      ball.x += nx*ov*0.8; ball.y += ny*ov*0.8
     }
   }
 }
 
-function applyPlayerMovement(players, CW, CH) {
+function moveAll(players, CW, CH) {
   for (const p of players) {
-    p.x = clamp(p.x + p.vx, PLAYER_R, CW - PLAYER_R)
-    p.y = clamp(p.y + p.vy, PLAYER_R, CH - PLAYER_R)
+    p.x = clamp(p.x+p.vx, P_R, CW-P_R)
+    p.y = clamp(p.y+p.vy, P_R, CH-P_R)
+    p.vx *= 0.8; p.vy *= 0.8
   }
 }
 
-// ─── KEEPER RESTRICTION ───────────────────────────────────────────────────────
-function enforceKeeperBounds(keeper, side, CW, CH) {
-  const a = getPenaltyArea(side, CW, CH)
-  keeper.x = clamp(keeper.x, a.x1 + PLAYER_R, a.x2 - PLAYER_R)
-  keeper.y = clamp(keeper.y, a.y1 + PLAYER_R, a.y2 - PLAYER_R)
-  keeper.vx = 0; keeper.vy = 0
-}
-
-// ─── KEEPER AUTO-PICKUP ───────────────────────────────────────────────────────
-function updateKeeperPickup(team, ball, side, CW, CH, state) {
-  const keeper = team[0]
-  const ballInOwnPen = inPenaltyArea(ball.x, ball.y, side, CW, CH)
-  if (!ballInOwnPen) {
-    keeper.keeperHasBall = false
-    return
-  }
-  // Check if keeper is nearest to ball among all players
-  let nearestDist = dist(keeper, ball)
-  for (const p of team) {
-    if (p.isKeeper) continue
-    if (dist(p, ball) < nearestDist) return  // outfield player is closer
-  }
-  // Keeper picks up ball
-  if (dist(keeper, ball) < BALL_OWN_R + 10) {
-    keeper.keeperHasBall = true
-    ball.vx = 0; ball.vy = 0
-    ball.x = keeper.x + (side === 'left' ? PLAYER_R + BALL_R + 2 : -(PLAYER_R + BALL_R + 2))
-    ball.y = keeper.y
-  }
-}
-
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function FootballCanvas({ config }) {
   const canvasRef = useRef(null)
 
@@ -660,234 +377,165 @@ export default function FootballCanvas({ config }) {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-
     canvas.width  = window.innerWidth
     canvas.height = window.innerHeight
-    const CW = canvas.width
-    const CH = canvas.height
-    const GOAL_H = CH * 0.35
+    const CW = canvas.width, CH = canvas.height
+    const GH = CH * 0.36   // goal height
 
     const formation = config?.formation || '1-2-1'
     const mode      = config?.mode || 'ai'
     const localSide = config?.side || 'left'
 
-    // ── Teams ────────────────────────────────────────────────────────────────
+    // Teams
     const leftTeam  = buildTeam(formation, 'left',  CW, CH)
     const rightTeam = buildTeam(formation, 'right', CW, CH)
-    leftTeam[1].selected = true
 
-    const ball = { x: CW / 2, y: CH / 2, vx: 1.5, vy: 0.5, spin: 0 }
+    // Human team captain starts as player 1
+    const ht = () => localSide === 'right' ? rightTeam : leftTeam
+    const at = () => localSide === 'right' ? leftTeam  : rightTeam
+    let captainIdx = 1
+    ht()[captainIdx].selected = true
 
-    // ── Game state ───────────────────────────────────────────────────────────
-    let scores    = [0, 0]
-    let timeLeft  = GAME_SEC
-    let gameOver  = false
-    let lastTime  = performance.now()
+    const ball = { x: CW/2, y: CH/2, vx: 1.5, vy: 0.5, spin: 0 }
 
-    // Flash message
-    let flashMsg   = ''
-    let flashAlpha = 0
+    let scores   = [0, 0]
+    let timeLeft = GAME_SEC
+    let gameOver = false
+    let lastTime = performance.now()
+    const flash  = { msg: '', alpha: 0 }
 
-    function showFlash(msg, duration = 2.0) {
-      flashMsg = msg; flashAlpha = duration
-    }
+    function showFlash(msg, dur = 2.0) { flash.msg = msg; flash.alpha = dur }
 
-    // Shared mutable state passed to physics
-    const state = {
-      lastTouchSide: 'left',
-      throwIn: false,
-      throwInSide: 'left',
-      throwInPos: null,
-      throwInGrace: 0,
-      throwInPlayer: null,   // player who will throw
-      offsideActive: false,
-      offsideFreeKickPos: null,
-    }
-
-    // Dribble state (human team)
-    const dribble = { active: false, timer: 0, cooldown: 0 }
-
-    // Keeper hold timer
-    let keeperHoldTimer = 0
-
-    // ── PVP Sync ─────────────────────────────────────────────────────────────
+    // PVP
     let sync = null
     let remoteInput = null
 
     async function initSync() {
-      if (mode !== 'pvp' || !config.roomId) return
+      if (mode !== 'pvp' || !config?.roomId) return
       const { FootballSync } = await import('../../lib/football/FootballSync')
       sync = new FootballSync(config.roomId, localSide)
       sync
-        .on('onRemoteInput', (payload) => { remoteInput = payload })
-        .on('onGoal', (payload) => {
-          scores[0] = payload.s0; scores[1] = payload.s1
+        .on('onRemoteInput', p => { remoteInput = p })
+        .on('onGoal', p => {
+          scores[0] = p.s0; scores[1] = p.s1
           showFlash('⚽ GOAL! ⚽')
           window.ANAGO_UI?.updateScore(scores[0], scores[1])
           resetBall(ball, CW, CH)
         })
-        .on('onGameEnd', (payload) => {
+        .on('onGameEnd', p => {
           gameOver = true
-          const winner = payload.winnerSide === 'left' ? 0 : 1
-          window.ANAGO_UI?.showResult(winner, [payload.s0, payload.s1])
+          window.ANAGO_UI?.showResult(p.winnerSide === 'left' ? 0 : 1, [p.s0, p.s1])
         })
         .connect()
     }
     initSync()
 
-    // ── Input ────────────────────────────────────────────────────────────────
-    let selectedIdx = 1
-    let tapTarget   = null
-    let lastTapTime = 0
-    let lastTapPos  = null
+    // ── Input ─────────────────────────────────────────────────────────────────
+    // Drag state for shoot detection
+    let dragStart = null, dragStartTime = 0
+    let passTarget = null   // teammate being hovered for pass preview
+    let shootTarget = null  // direction of swipe shoot
 
-    function getCanvasPos(e) {
-      const rect = canvas.getBoundingClientRect()
-      const src  = e.touches ? e.touches[0] : e
-      return {
-        x: (src.clientX - rect.left) * (CW / rect.width),
-        y: (src.clientY - rect.top)  * (CH / rect.height),
+    function getPos(e) {
+      const r = canvas.getBoundingClientRect()
+      const s = e.touches ? e.touches[0] : e
+      return { x: (s.clientX-r.left)*(CW/r.width), y: (s.clientY-r.top)*(CH/r.height) }
+    }
+
+    function autoSelectCaptain() {
+      // Auto-switch captain to nearest player to ball
+      const team = ht()
+      let best = captainIdx, bestD = Infinity
+      for (let i = 0; i < team.length; i++) {
+        const dd = d2(team[i], ball)
+        if (dd < bestD) { bestD = dd; best = i }
+      }
+      // Don't auto-select keeper unless ball in own half
+      if (best === 0 && ball.x > CW*0.2 && ball.x < CW*0.8) best = 1
+      if (best !== captainIdx) {
+        team[captainIdx].selected = false
+        captainIdx = best
+        team[captainIdx].selected = true
       }
     }
 
-    function humanTeam() {
-      return mode === 'pvp' && localSide === 'right' ? rightTeam : leftTeam
-    }
-
-    function autoSelectNearest() {
-      const ht = humanTeam()
-      let best = 1, bestD = Infinity
-      for (let i = 0; i < ht.length; i++) {
-        const d = dist(ht[i], ball)
-        if (d < bestD) { bestD = d; best = i }
-      }
-      // Don't auto-select keeper unless ball in own pen area
-      if (best === 0) {
-        const side = localSide
-        if (!inPenaltyArea(ball.x, ball.y, side, CW, CH)) best = 1
-      }
-      ht.forEach((p, i) => { p.selected = i === best })
-      selectedIdx = best
-    }
-
-    // Dribble button hit test
-    function isDribbleButton(pos) {
-      const bx = CW / 2, by = CH - 44
-      return Math.abs(pos.x - bx) < 60 && Math.abs(pos.y - by) < 22
-    }
-
-    function onPointerDown(e) {
+    function onDown(e) {
       e.preventDefault()
-      const pos = getCanvasPos(e)
-      const now = performance.now()
-      const dt  = now - lastTapTime
-      lastTapTime = now
+      const pos = getPos(e)
+      dragStart = pos; dragStartTime = performance.now()
+      passTarget = null; shootTarget = null
 
-      // Dribble button
-      if (isDribbleButton(pos)) {
-        if (!dribble.active && dribble.cooldown <= 0) {
-          dribble.active = true
-          dribble.timer  = DRIBBLE_DURATION
-          dribble.cooldown = 0
-        }
-        return
-      }
-
-      // Throw-in: tap anywhere to throw
-      if (state.throwIn && state.throwInSide === (mode === 'pvp' ? localSide : 'left')) {
-        const ht = humanTeam()
-        const thrower = state.throwInPlayer || ht[1]
-        const dx = pos.x - ball.x, dy = pos.y - ball.y
-        const d  = Math.hypot(dx, dy) || 1
-        const power = Math.min(7, d / 40)
-        ball.vx = (dx / d) * power
-        ball.vy = (dy / d) * power
-        state.throwIn = false
-        state.throwInGrace = THROW_IN_GRACE
-        state.throwInPlayer = null
-        return
-      }
-
-      const ht = humanTeam()
-      const sel = ht[selectedIdx]
-
-      // Tap on teammate → pass
-      for (let i = 0; i < ht.length; i++) {
-        if (i === selectedIdx) continue
-        if (dist(ht[i], pos) < PLAYER_R * 2.5) {
-          const ballDist = dist(sel, ball)
-          if (ballDist < BALL_OWN_R + 20) {
-            // Check interception
-            const opponents = mode === 'pvp' && localSide === 'right' ? leftTeam : rightTeam
-            const interceptor = findInterceptor(ball.x, ball.y, ht[i].x, ht[i].y, opponents)
-            if (interceptor) {
-              // Ball intercepted
-              const idx2 = interceptor.x - ball.x, idy2 = interceptor.y - ball.y
-              const id2 = Math.hypot(idx2, idy2) || 1
-              ball.vx = (idx2 / id2) * 5; ball.vy = (idy2 / id2) * 5
-              state.lastTouchSide = interceptor.side
-            } else {
-              // Check offside
-              const attackSide = localSide
-              const defenders  = mode === 'pvp' && localSide === 'right' ? leftTeam : rightTeam
-              const offsideIds = getOffsidePlayers(ht, defenders, ball, attackSide, CW)
-              if (offsideIds.includes(ht[i].id)) {
-                showFlash('OFFSIDE!')
-                state.offsideActive = true
-                state.offsideFreeKickPos = { x: ht[i].x, y: ht[i].y }
-                // Give ball to defenders
-                const nearestDef = defenders.reduce((a, b) => dist(a, ball) < dist(b, ball) ? a : b)
-                ball.vx = (nearestDef.x - ball.x) / 60
-                ball.vy = (nearestDef.y - ball.y) / 60
-                return
-              }
-              const dx2 = ht[i].x - ball.x, dy2 = ht[i].y - ball.y
-              const d2  = Math.hypot(dx2, dy2) || 1
-              const power = Math.min(8, d2 / 30)
-              ball.vx = (dx2 / d2) * power; ball.vy = (dy2 / d2) * power
-              state.lastTouchSide = localSide
-            }
-            ht.forEach((p, j) => { p.selected = j === i })
-            selectedIdx = i
-          }
+      // Check if tapping on a teammate → show pass preview
+      const team = ht()
+      for (let i = 0; i < team.length; i++) {
+        if (i === captainIdx) continue
+        if (d2(team[i], pos) < P_R * 2.5) {
+          passTarget = i
           return
         }
       }
+    }
 
-      // Keeper has ball: tap teammate to pass (no shooting)
-      if (sel && sel.isKeeper && sel.keeperHasBall) {
-        // Already handled above (tap teammate)
-        return
-      }
+    function onMove(e) {
+      e.preventDefault()
+      if (!dragStart) return
+      const pos = getPos(e)
+      const dd = d2(pos, dragStart)
 
-      const ballDist = dist(pos, ball)
-      const isDoubleTap = dt < 350 && lastTapPos && dist(pos, lastTapPos) < 60
-      lastTapPos = pos
-
-      const opponents = mode === 'pvp' && localSide === 'right' ? leftTeam : rightTeam
-      const oppGoalX  = localSide === 'left' ? CW : 0
-
-      if (isDoubleTap && ballDist < 80) {
-        // Shoot
-        const dx = oppGoalX - ball.x, dy = CH / 2 - ball.y
-        const d  = Math.hypot(dx, dy) || 1
-        ball.vx = (dx / d) * 10; ball.vy = (dy / d) * 10 + (Math.random() - 0.5) * 3
-        state.lastTouchSide = localSide
-      } else if (ballDist < 60 && sel && dist(sel, ball) < BALL_OWN_R + 30) {
-        // Kick toward goal
-        const dx = oppGoalX - ball.x, dy = CH / 2 - ball.y
-        const d  = Math.hypot(dx, dy) || 1
-        ball.vx = (dx / d) * 7; ball.vy = (dy / d) * 7 + (Math.random() - 0.5) * 2
-        state.lastTouchSide = localSide
-      } else {
-        tapTarget = { x: pos.x, y: pos.y }
+      // If dragging far = shoot preview
+      if (dd > 40) {
+        passTarget = null
+        shootTarget = pos
       }
     }
 
-    canvas.addEventListener('touchstart', onPointerDown, { passive: false })
-    canvas.addEventListener('mousedown',  onPointerDown)
+    function onUp(e) {
+      e.preventDefault()
+      if (!dragStart) return
+      const pos = getPos(e)
+      const dd = d2(pos, dragStart)
+      const dt = performance.now() - dragStartTime
+      const team = ht()
+      const captain = team[captainIdx]
 
-    // ── Game loop ─────────────────────────────────────────────────────────────
+      if (passTarget !== null) {
+        // PASS to teammate
+        const mate = team[passTarget]
+        const [nx, ny] = norm(mate.x - ball.x, mate.y - ball.y)
+        const pwr = Math.min(9, d2(ball, mate) / 30)
+        ball.vx = nx * pwr; ball.vy = ny * pwr
+        // Switch captain to that player
+        team[captainIdx].selected = false
+        captainIdx = passTarget
+        team[captainIdx].selected = true
+        passTarget = null
+
+      } else if (dd > 50 && dt < 600) {
+        // SHOOT — swipe direction
+        const [nx, ny] = norm(pos.x - dragStart.x, pos.y - dragStart.y)
+        const power = Math.min(12, dd / 18)
+        ball.vx = nx * power; ball.vy = ny * power
+        shootTarget = null
+
+      } else if (dd < 20 && dt < 350) {
+        // TAP — move captain toward tap position
+        const [nx, ny] = norm(pos.x - captain.x, pos.y - captain.y)
+        const dist2 = d2(captain, pos)
+        captain.vx = nx * Math.min(P_SPEED * 3, dist2 * 0.25)
+        captain.vy = ny * Math.min(P_SPEED * 3, dist2 * 0.25)
+      }
+
+      dragStart = null; shootTarget = null
+    }
+
+    canvas.addEventListener('touchstart', onDown, { passive: false })
+    canvas.addEventListener('touchmove',  onMove, { passive: false })
+    canvas.addEventListener('touchend',   onUp,   { passive: false })
+    canvas.addEventListener('mousedown',  onDown)
+    canvas.addEventListener('mousemove',  onMove)
+    canvas.addEventListener('mouseup',    onUp)
+
+    // ── Game Loop ──────────────────────────────────────────────────────────────
     let animId
 
     function loop(now) {
@@ -897,88 +545,46 @@ export default function FootballCanvas({ config }) {
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now
       timeLeft -= delta
-      flashAlpha = Math.max(0, flashAlpha - delta * 0.8)
-      state.throwInGrace = Math.max(0, state.throwInGrace - delta)
+      flash.alpha = Math.max(0, flash.alpha - delta * 1.2)
 
-      // Dribble timer
-      if (dribble.active) {
-        dribble.timer -= delta
-        if (dribble.timer <= 0) {
-          dribble.active = false
-          dribble.cooldown = DRIBBLE_COOLDOWN
-        }
-      } else if (dribble.cooldown > 0) {
-        dribble.cooldown = Math.max(0, dribble.cooldown - delta)
-      }
+      // Auto-select captain
+      autoSelectCaptain()
 
-      // Auto-select nearest human player
-      autoSelectNearest()
+      // AI for opponent team (and own non-captain players)
+      const aiTeam = at()
+      updateAI(aiTeam, ht(), ball, aiTeam[0].side, CW, CH, GH)
 
-      const ht = humanTeam()
-      const sel = ht[selectedIdx]
-
-      // Move selected human player
-      if (tapTarget && sel) {
-        const dx = tapTarget.x - sel.x, dy = tapTarget.y - sel.y
-        const d  = Math.hypot(dx, dy)
-        if (d < 4) {
-          tapTarget = null; sel.vx = 0; sel.vy = 0
+      // Own non-captain players: hold formation with pressure
+      const team = ht()
+      for (let i = 0; i < team.length; i++) {
+        if (i === captainIdx) continue
+        const p = team[i]
+        if (p.isKeeper) {
+          // Keeper AI
+          const isL = localSide === 'left'
+          const kx = isL ? CW*0.06 : CW*0.94
+          const gy = (CH-GH)/2
+          const ty = clamp(ball.y, gy+P_R, gy+GH-P_R)
+          const ballClose = d2(p, ball) < 80
+          const tx = ballClose ? clamp(ball.x, isL ? P_R : CW*0.82, isL ? CW*0.18 : CW-P_R) : kx
+          const [nx, ny] = norm(tx-p.x, ty-p.y)
+          p.vx = nx * Math.min(AI_SPEED, d2(p, {x:tx,y:ty}))
+          p.vy = ny * Math.min(AI_SPEED, d2(p, {x:tx,y:ty}))
         } else {
-          const spd = dribble.active ? PLAYER_SPEED * DRIBBLE_SPEED_MUL : PLAYER_SPEED
-          sel.vx = (dx / d) * Math.min(spd, d)
-          sel.vy = (dy / d) * Math.min(spd, d)
+          const tx = p.homeX + (ball.x - p.homeX) * 0.18
+          const ty = p.homeY + (ball.y - p.homeY) * 0.18
+          const [nx, ny] = norm(tx-p.x, ty-p.y)
+          p.vx = nx * Math.min(AI_SPEED*0.6, d2(p, {x:tx,y:ty}))
+          p.vy = ny * Math.min(AI_SPEED*0.6, d2(p, {x:tx,y:ty}))
         }
       }
 
-      // Dribble: ball sticks to selected player
-      if (dribble.active && sel && dist(sel, ball) < BALL_OWN_R + 10) {
-        const side = localSide === 'left' ? 1 : -1
-        ball.x = sel.x + side * (PLAYER_R + BALL_R + 2)
-        ball.y = sel.y
-        ball.vx = sel.vx * 0.9; ball.vy = sel.vy * 0.9
-      }
-
-      // Keeper restriction: clamp to penalty area
-      enforceKeeperBounds(leftTeam[0],  'left',  CW, CH)
-      enforceKeeperBounds(rightTeam[0], 'right', CW, CH)
-
-      // Keeper auto-pickup
-      updateKeeperPickup(leftTeam,  ball, 'left',  CW, CH, state)
-      updateKeeperPickup(rightTeam, ball, 'right', CW, CH, state)
-
-      // Keeper hold timer
-      const humanKeeper = ht[0]
-      if (humanKeeper.keeperHasBall) {
-        keeperHoldTimer += delta
-        if (keeperHoldTimer >= KEEPER_PASS_LIMIT) {
-          // Give ball to nearest opponent
-          const opponents = mode === 'pvp' && localSide === 'right' ? leftTeam : rightTeam
-          const nearest = opponents.reduce((a, b) => dist(a, ball) < dist(b, ball) ? a : b)
-          ball.vx = (nearest.x - ball.x) / 40
-          ball.vy = (nearest.y - ball.y) / 40
-          humanKeeper.keeperHasBall = false
-          keeperHoldTimer = 0
-          showFlash('INDIRECT FREE KICK', 1.5)
-        }
-      } else {
-        keeperHoldTimer = 0
-      }
-
-      // AI for right team (or left if pvp right side)
-      if (mode !== 'pvp') {
-        updateAI(rightTeam, leftTeam, ball, 'right', CW, CH, GOAL_H, formation)
-      }
-
-      // PVP remote input
+      // PVP remote
       if (mode === 'pvp' && remoteInput) {
-        const remoteTeam = localSide === 'left' ? rightTeam : leftTeam
-        if (remoteInput.targetX !== undefined) {
-          const rp = remoteTeam[remoteInput.selectedId] || remoteTeam[1]
-          if (rp) {
-            const dx = remoteInput.targetX - rp.x, dy = remoteInput.targetY - rp.y
-            const d  = Math.hypot(dx, dy) || 1
-            rp.vx = (dx / d) * PLAYER_SPEED; rp.vy = (dy / d) * PLAYER_SPEED
-          }
+        const rt = at()
+        const rp = rt[remoteInput.captainIdx] || rt[1]
+        if (rp && remoteInput.vx !== undefined) {
+          rp.vx = remoteInput.vx; rp.vy = remoteInput.vy
         }
         if (remoteInput.ballVx !== undefined) {
           ball.vx = remoteInput.ballVx; ball.vy = remoteInput.ballVy
@@ -986,138 +592,87 @@ export default function FootballCanvas({ config }) {
         remoteInput = null
       }
 
-      // Broadcast PVP input
+      // Broadcast captain state
       if (mode === 'pvp' && sync) {
-        sync.broadcastInput({
-          side: localSide,
-          selectedId: selectedIdx,
-          targetX: tapTarget ? tapTarget.x : sel?.x,
-          targetY: tapTarget ? tapTarget.y : sel?.y,
-          action: dribble.active ? 'dribble' : null,
-        })
+        const cap = ht()[captainIdx]
+        sync.broadcastInput({ captainIdx, vx: cap.vx, vy: cap.vy })
       }
 
-      // Throw-in: position nearest player to throw-in spot
-      if (state.throwIn) {
-        const throwTeam = state.throwInSide === 'left' ? leftTeam : rightTeam
-        let nearestP = throwTeam[1], nearestD = Infinity
-        for (let i = 1; i < throwTeam.length; i++) {
-          const d = dist(throwTeam[i], state.throwInPos)
-          if (d < nearestD) { nearestD = d; nearestP = throwTeam[i] }
-        }
-        state.throwInPlayer = nearestP
-        // Move thrower toward throw-in spot
-        const dx = state.throwInPos.x - nearestP.x
-        const dy = (state.throwInPos.y < CH / 2 ? 30 : CH - 30) - nearestP.y
-        const d  = Math.hypot(dx, dy) || 1
-        nearestP.vx = (dx / d) * PLAYER_SPEED
-        nearestP.vy = (dy / d) * PLAYER_SPEED
-        // Freeze ball at boundary
-        ball.x = state.throwInPos.x
-        ball.y = clamp(state.throwInPos.y, BALL_R, CH - BALL_R)
-        ball.vx = 0; ball.vy = 0
-        showFlash('THROW-IN', 0.05)
-      }
-
-      // Apply movement
-      applyPlayerMovement(leftTeam,  CW, CH)
-      applyPlayerMovement(rightTeam, CW, CH)
-
-      // Friction on non-selected players
-      for (const p of [...leftTeam, ...rightTeam]) {
-        if (!p.selected || tapTarget === null) {
-          p.vx *= 0.75; p.vy *= 0.75
-        }
-      }
-
-      // Ball physics
-      updateBallPhysics(ball, CW, CH, GOAL_H, state)
-      resolvePlayerBallCollisions([...leftTeam, ...rightTeam], ball, state)
-
-      // Offside check: clear after a moment
-      if (state.offsideActive) {
-        state.offsideActive = false
-        // Mark offside players briefly
-        setTimeout(() => {
-          for (const p of [...leftTeam, ...rightTeam]) p.offside = false
-        }, 1500)
-      }
+      // Move all
+      moveAll([...leftTeam, ...rightTeam], CW, CH)
+      updateBall(ball, CW, CH, GH)
+      resolveCollisions([...leftTeam, ...rightTeam], ball)
 
       // Goal check
-      const scorer = checkGoal(ball, CW, CH, GOAL_H)
+      const scorer = checkGoal(ball, CW, CH, GH)
       if (scorer >= 0) {
         scores[scorer]++
         showFlash('⚽ GOAL! ⚽')
         window.ANAGO_UI?.updateScore(scores[0], scores[1])
-        if (mode === 'pvp' && sync) sync.broadcastGoal(scorer === 0 ? 'left' : 'right', scores[0], scores[1])
+        if (mode === 'pvp' && sync) sync.broadcastGoal(scorer===0?'left':'right', scores[0], scores[1])
         resetBall(ball, CW, CH)
       }
 
-      // Timer end
+      // Timer
       if (timeLeft <= 0) {
         timeLeft = 0; gameOver = true
         const winner = scores[0] >= scores[1] ? 0 : 1
-        if (mode === 'pvp' && sync) sync.broadcastGameEnd(winner === 0 ? 'left' : 'right', scores[0], scores[1])
+        if (mode === 'pvp' && sync) sync.broadcastGameEnd(winner===0?'left':'right', scores[0], scores[1])
         window.ANAGO_UI?.showResult(winner, [...scores])
       }
 
       draw()
     }
 
-    // ── Draw ──────────────────────────────────────────────────────────────────
     function draw() {
       ctx.clearRect(0, 0, CW, CH)
       drawField(ctx, CW, CH)
-      drawGoals(ctx, CW, CH, GOAL_H)
+      drawGoals(ctx, CW, CH, GH)
 
-      // Penalty area highlight during throw-in
-      if (state.throwIn) {
-        const a = getPenaltyArea(state.throwInSide, CW, CH)
-        ctx.fillStyle = 'rgba(255,255,255,0.06)'
-        ctx.fillRect(a.x1, a.y1, a.x2 - a.x1, a.y2 - a.y1)
+      // Ball shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'
+      ctx.beginPath(); ctx.ellipse(ball.x+3, ball.y+B_R+2, B_R*0.9, 5, 0, 0, Math.PI*2); ctx.fill()
+
+      // Pass preview line
+      if (passTarget !== null) {
+        const team = ht()
+        drawPassLine(ctx, team[captainIdx], team[passTarget])
+      }
+
+      // Shoot preview
+      if (shootTarget && dragStart) {
+        drawShootArrow(ctx, dragStart, shootTarget)
       }
 
       // Players
       const allPlayers = [...leftTeam, ...rightTeam]
       for (const p of allPlayers) {
-        const hasBall = dist(p, ball) < BALL_OWN_R
-        drawPlayer(ctx, p, hasBall)
-      }
-
-      // Throw-in indicator
-      if (state.throwIn) drawThrowInIndicator(ctx, state.throwInPlayer)
-
-      // Keeper hold timer
-      const ht = humanTeam()
-      if (ht[0].keeperHasBall && keeperHoldTimer > 0) {
-        drawKeeperTimer(ctx, ht[0], KEEPER_PASS_LIMIT - keeperHoldTimer)
+        const isCap = p.side === localSide && p.id === captainIdx
+        const hasBall = d2(p, ball) < OWN_RANGE
+        drawPlayer(ctx, p, isCap, hasBall)
       }
 
       drawBall(ctx, ball)
-      drawHUD(ctx, CW, CH, scores, timeLeft, formation, flashMsg, flashAlpha, dribble)
+      drawHUD(ctx, CW, CH, scores, timeLeft, formation, flash)
     }
 
     animId = requestAnimationFrame(loop)
 
-    const onResize = () => {
-      canvas.width  = window.innerWidth
-      canvas.height = window.innerHeight
-    }
+    const onResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
     window.addEventListener('resize', onResize)
 
     return () => {
       cancelAnimationFrame(animId)
-      canvas.removeEventListener('touchstart', onPointerDown)
-      canvas.removeEventListener('mousedown',  onPointerDown)
+      canvas.removeEventListener('touchstart', onDown)
+      canvas.removeEventListener('touchmove',  onMove)
+      canvas.removeEventListener('touchend',   onUp)
+      canvas.removeEventListener('mousedown',  onDown)
+      canvas.removeEventListener('mousemove',  onMove)
+      canvas.removeEventListener('mouseup',    onUp)
       window.removeEventListener('resize', onResize)
       sync?.disconnect()
     }
   }, [config])
 
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ display: 'block', width: '100vw', height: '100vh', touchAction: 'none' }}
-    />
-  )
+  return <canvas ref={canvasRef} style={{ display: 'block', width: '100vw', height: '100vh', touchAction: 'none' }} />
 }
