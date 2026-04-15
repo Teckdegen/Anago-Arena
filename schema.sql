@@ -1,5 +1,5 @@
 -- ============================================================
--- ANAGO ARENA — Supabase Schema
+-- ANAGO ARENA — Supabase Schema (Basketball + Football only)
 -- Run this in the Supabase SQL editor (Dashboard → SQL Editor)
 -- ============================================================
 
@@ -9,7 +9,7 @@ create table if not exists users (
   id             uuid        default gen_random_uuid() primary key,
   wallet_address text        unique not null,
   username       text        unique not null,
-  total_points   integer     default 0,   -- sum across ALL games
+  total_points   integer     default 0,
   highest_level  integer     default 1,
   games_played   integer     default 0,
   games_won      integer     default 0,
@@ -18,13 +18,12 @@ create table if not exists users (
 
 create index if not exists idx_users_total_points on users (total_points desc);
 
--- ── Per-game scores ──────────────────────────────────────────
--- Each row = one user's best stats for one game
+-- ── Per-game scores (basketball + football only) ─────────────
 
 create table if not exists game_scores (
   id             uuid        default gen_random_uuid() primary key,
   wallet_address text        not null,
-  game_id        text        not null,   -- 'basketball' | 'pong' | 'catch' | 'dash' | 'fetch' | 'tower' | 'football'
+  game_id        text        not null,   -- 'basketball' | 'football'
   best_score     integer     default 0,
   games_played   integer     default 0,
   games_won      integer     default 0,
@@ -38,13 +37,15 @@ create index if not exists idx_game_scores_game on game_scores (game_id, best_sc
 
 create table if not exists rooms (
   id             uuid        default gen_random_uuid() primary key,
-  game_id        text        default 'basketball',  -- which game this room is for
+  game_id        text        default 'basketball',
   host_wallet    text        not null,
   host_username  text        not null,
   level          integer     default 1,
   status         text        default 'open',
   guest_wallet   text,
   guest_username text,
+  -- Football-specific: formation chosen by host
+  host_formation text        default '4-4-2',
   created_at     timestamptz default now()
 );
 
