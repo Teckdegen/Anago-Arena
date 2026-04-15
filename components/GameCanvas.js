@@ -46,11 +46,15 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera ───────────────────────────────
+      // ── Scene + Camera — FIXED, covers full court ────
       const scene = new THREE.Scene()
-      const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 100)
-      camera.position.set(0, 5, 16)
-      camera.lookAt(0, 5, 0)
+      // Fixed camera: wide enough to see the full 16-unit wide court
+      // Court half-width = 8, so full width = 16
+      // Camera at Z=18, looking at center, FOV 70 covers it all
+      const camera = new THREE.PerspectiveCamera(70, W / H, 0.1, 200)
+      camera.position.set(0, 4, 18)
+      camera.lookAt(0, 4, 0)
+      // Camera never moves — no CameraSystem shake/follow
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -76,6 +80,19 @@ export default function GameCanvas({ mode, level, user, room }) {
       // ── Court ─────────────────────────────────────────
       const court = new Court(scene, world, THREE, CANNON)
       court.rebuild(levelConfig)
+
+      // ── Court boundary outline (visible walls) ────────
+      const hw = GAME_CONFIG.COURT_HALF_WIDTH
+      const wallMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 3 })
+      const wallGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-hw, 0, 0),
+        new THREE.Vector3( hw, 0, 0),
+        new THREE.Vector3( hw, 11, 0),
+        new THREE.Vector3(-hw, 11, 0),
+        new THREE.Vector3(-hw, 0, 0),
+      ])
+      const wallOutline = new THREE.Line(wallGeo, wallMat)
+      scene.add(wallOutline)
 
       // ── Hoop ──────────────────────────────────────────
       const hoopY  = (levelConfig.wallHeight || 3) + 2.8   // much higher
@@ -107,7 +124,7 @@ export default function GameCanvas({ mode, level, user, room }) {
       const dragArrow    = new DragArrow(scene, THREE)
       inputSystem        = new InputSystem(renderer.domElement, camera, THREE)
       const playerSystem = new PlayerSystem([player1, player2])
-      const cameraSystem = new CameraSystem(camera, [ball1, ball2], THREE)
+      const cameraSystem = { update: () => {}, shake: () => {} }  // camera is fixed
       const aiSystem     = new AISystem(player2, ball2, player1, hoop, levelConfig)
 
       const scoreSystem = new ScoreSystem(
