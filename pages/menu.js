@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { useDisconnect } from 'wagmi'
 import { getOpenRooms, createRoom, joinRoom, subscribeToRooms } from '../lib/supabase'
 import {
   DogIcon, PawIcon, BotIcon, UsersIcon, TrophyIcon,
@@ -37,7 +36,6 @@ function SeasonBadge({ season }) {
 
 export default function Menu() {
   const router = useRouter()
-  const { disconnect } = useDisconnect()
   const [user, setUser] = useState(null)
   const [level, setLevel] = useState(1)
   const [totalPoints, setTotalPoints] = useState(0)
@@ -202,7 +200,6 @@ export default function Menu() {
 
         <button
           onClick={() => {
-            disconnect()
             localStorage.removeItem('bb_user')
             router.push('/')
           }}

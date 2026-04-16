@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { useDisconnect } from 'wagmi'
 import { DogIcon, PawIcon } from '../components/Icons'
 
 function shortenAddress(addr) {
@@ -10,7 +9,6 @@ function shortenAddress(addr) {
 
 export default function SelectMode() {
   const router   = useRouter()
-  const { disconnect } = useDisconnect()
   const [user, setUser]     = useState(null)
   const [mounted, setMounted] = useState(false)
   const [hover, setHover]   = useState(null)
@@ -109,7 +107,7 @@ export default function SelectMode() {
         </div>
 
         <button
-          onClick={() => { disconnect(); localStorage.removeItem('bb_user'); router.push('/') }}
+          onClick={() => { localStorage.removeItem('bb_user'); router.push('/') }}
           className="font-arcade mt-10"
           style={{ fontSize: 7, color: 'rgba(244,160,160,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
         >

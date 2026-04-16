@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { useDisconnect } from 'wagmi'
 import { DogIcon, PawIcon, TrophyIcon, ArrowLeftIcon } from '../components/Icons'
 import HowToPlay from '../components/HowToPlay'
 
@@ -23,7 +22,6 @@ const GAMES = [
 
 export default function Arena() {
   const router = useRouter()
-  const { disconnect } = useDisconnect()
   const [user, setUser]         = useState(null)
   const [totalPoints, setTotal] = useState(0)
   const [mounted, setMounted]   = useState(false)
@@ -158,7 +156,7 @@ export default function Arena() {
               {shortenAddress(user.wallet)}
             </span>
             <button
-              onClick={() => { disconnect(); localStorage.removeItem('bb_user'); router.push('/') }}
+              onClick={() => { localStorage.removeItem('bb_user'); router.push('/') }}
               className="font-arcade"
               style={{ fontSize: 6, color: 'rgba(244,160,160,0.35)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 8 }}
             >
