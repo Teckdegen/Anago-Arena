@@ -78,7 +78,7 @@ export default function SelectMode() {
           <ModeCard
             emoji="🎮"
             title="REGULAR GAMES"
-            desc="BasketBattle & Head Ball. VS AI or PVP."
+            desc="BasketBattle — drag to shoot, tap to jump. VS AI or PVP."
             color="#C17A2A"
             shadow="#8A4A0A"
             bg="rgba(193,122,42,0.18)"
@@ -86,7 +86,7 @@ export default function SelectMode() {
             onHover={() => setHover('games')}
             onLeave={() => setHover(null)}
             onClick={() => router.push('/arena')}
-            badge="2 GAMES"
+            badge="1 GAME"
             badgeColor="#F0B429"
           />
 

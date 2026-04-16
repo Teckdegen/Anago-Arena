@@ -19,15 +19,6 @@ const GAMES = [
     route: '/game', tag: 'ORIGINAL', tagColor: '#F0B429',
     features: ['VS AI', 'PVP', 'LEVELS'],
   },
-  {
-    id: 'football',
-    name: 'Head Ball',
-    emoji: '⚽',
-    desc: 'Side-view 1v1. Big dog heads, jump & kick. Button controls. First to 5 goals!',
-    color: '#27AE60', shadow: '#1A6B3A', accent: 'rgba(39,174,96,0.2)',
-    route: '/games/football', tag: 'HOT', tagColor: '#27AE60',
-    features: ['VS AI', 'PVP'],
-  },
 ]
 
 export default function Arena() {

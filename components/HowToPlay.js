@@ -4,7 +4,6 @@ import { BasketballIcon, PawIcon, TrophyIcon, ZapIcon, TargetIcon } from './Icon
 // Game selector + per-game steps
 const GAMES = [
   { id: 'basketball', label: 'BasketBattle', emoji: '🏀', color: '#C17A2A' },
-  { id: 'football',   label: 'Head Ball',    emoji: '⚽', color: '#27AE60' },
 ]
 
 const STEPS = {
@@ -38,38 +37,6 @@ const STEPS = {
       title: 'First to 100 Wins!',
       desc: 'Score points by sinking shots. Both players shoot simultaneously. First to 100 wins!',
       tip: 'Hoop gets smaller every 10 levels!',
-    },
-  ],
-  football: [
-    {
-      emoji: '←→',
-      title: 'Move',
-      desc: 'Press ← → to run. You can\'t cross the centre line — stay on your side!',
-      tip: 'Position yourself under the ball',
-    },
-    {
-      emoji: '↑',
-      title: 'Jump',
-      desc: 'Press ↑ to jump. Time it right to head the ball toward the opponent\'s goal.',
-      tip: 'Higher jump = more power on the header',
-    },
-    {
-      emoji: '⚽',
-      title: 'KICK (A)',
-      desc: 'Press KICK for a power kick. When you\'re near the ball it launches with extra force.',
-      tip: 'Combine jump + kick for a flying header!',
-    },
-    {
-      emoji: '💥',
-      title: 'TACKLE (T)',
-      desc: 'Press TACKLE when close to the opponent. Knocks the ball away and sends them stumbling!',
-      tip: 'Only works when you\'re right next to them',
-    },
-    {
-      emoji: '🏆',
-      title: 'Win!',
-      desc: 'First to 5 goals wins. 90 second timer — whoever leads when time runs out wins!',
-      tip: 'Works VS AI and PVP online',
     },
   ],
 }
