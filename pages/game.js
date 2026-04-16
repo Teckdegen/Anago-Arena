@@ -269,8 +269,7 @@ export default function BasketballPage() {
       {/* HUD overlay */}
       {!result && (
         <div className="fixed inset-0 pointer-events-none z-10">
-        <div className="flex justify-between items-start p-3 gap-2"
-          style={{ height: 70, alignItems: 'center' }}>
+          <div className="flex justify-between items-start p-3 gap-2">
             <div className="hud-panel">
               <p className="hud-score" style={{ color: '#C17A2A', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <PawIcon size={12} color="#C17A2A" /> {user?.username || 'YOU'}
@@ -289,9 +288,8 @@ export default function BasketballPage() {
             </div>
           </div>
 
-          {/* Quit button — fixed height zone matching QUIT_BOT_PX=55 */}
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-auto"
-            style={{ height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Quit button */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
             <button
               onClick={() => { setGameState('lobby'); setScores([0, 0]); setResult(null) }}
               className="font-arcade"

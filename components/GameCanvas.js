@@ -44,26 +44,18 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
-      renderer.setScissorTest(true)
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera — OrthographicCamera fills PLAYABLE screen area ────
-      // HUD panels at top (~70px), quit button at bottom (~50px).
-      // Court should fill the space between them.
+      // ── Scene + Camera — OrthographicCamera fills screen exactly ────
       const scene = new THREE.Scene()
 
-      const HUD_TOP_PX    = 70   // HUD panels height
-      const QUIT_BOT_PX   = 55   // Quit button height
-      const playableH     = H - HUD_TOP_PX - QUIT_BOT_PX
-      const playableAspect = W / playableH
-
       const COURT_W  = 24   // total width  (-12 to +12)
-      const COURT_H  = 14   // total height (0 to 14)
-      const COURT_CX = 0    // center x
-      const COURT_CY = 7    // center y
+      const COURT_H  = 32   // total height (0 to 32) — tall enough to fill portrait screens
+      const COURT_CX = 0
+      const COURT_CY = COURT_H / 2   // 16
 
-      function makeOrthoCamera(w, playH) {
-        const screenAspect = w / playH
+      function makeOrthoCamera(w, h) {
+        const screenAspect = w / h
         const courtAspect  = COURT_W / COURT_H
 
         let halfW, halfH
@@ -86,10 +78,10 @@ export default function GameCanvas({ mode, level, user, room }) {
         )
         cam.position.set(COURT_CX, COURT_CY, 50)
         cam.lookAt(COURT_CX, COURT_CY, 0)
-        return { cam, halfW, halfH }
+        return cam
       }
 
-      const { cam: camera } = makeOrthoCamera(W, playableH)
+      const camera = makeOrthoCamera(W, H)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -123,15 +115,15 @@ export default function GameCanvas({ mode, level, user, room }) {
       const wallGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-hw, 0, 0),
         new THREE.Vector3( hw, 0, 0),
-        new THREE.Vector3( hw, 14, 0),
-        new THREE.Vector3(-hw, 14, 0),
+        new THREE.Vector3( hw, COURT_H, 0),
+        new THREE.Vector3(-hw, COURT_H, 0),
         new THREE.Vector3(-hw, 0, 0),
       ])
       const wallOutline = new THREE.Line(wallGeo, wallMat)
       scene.add(wallOutline)
 
-      // ── Hoop ──────────────────────────────────────────
-      const hoopY  = (levelConfig.wallHeight || 3) + 2.8   // much higher
+      // ── Hoop — placed high up in the tall court ───────
+      const hoopY  = (levelConfig.wallHeight || 5) + 8   // high up
       const hoopX  = levelConfig.hoopOffsetX || 0
       const hoop   = new Hoop(scene, world, THREE, CANNON, { x: hoopX, y: hoopY, z: 0 }, levelConfig.hoopRadius)
 
@@ -223,24 +215,12 @@ export default function GameCanvas({ mode, level, user, room }) {
       })
       turnManager.start()
 
-      // ── Viewport helpers — render only into the playable strip ──────────
-      // HUD_TOP_PX from top, QUIT_BOT_PX from bottom.
-      // WebGL Y is bottom-up, so bottom of viewport = QUIT_BOT_PX from bottom.
-      function applyViewport(w, h) {
-        const vx = 0
-        const vy = QUIT_BOT_PX                    // WebGL Y=0 is bottom
-        const vw = w
-        const vh = h - HUD_TOP_PX - QUIT_BOT_PX
-        renderer.setViewport(vx, vy, vw, vh)
-        renderer.setScissor(vx, vy, vw, vh)
-      }
-      applyViewport(W, H)
+      // ── Resize ────────────────────────────────────────
       onResizeHandler = () => {
         if (!container) return
         const w = container.clientWidth
         const h = container.clientHeight
-        const playH = h - HUD_TOP_PX - QUIT_BOT_PX
-        const screenAspect = w / playH
+        const screenAspect = w / h
         const courtAspect  = COURT_W / COURT_H
 
         let halfW, halfH
@@ -258,7 +238,6 @@ export default function GameCanvas({ mode, level, user, room }) {
         camera.bottom = COURT_CY - halfH
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
-        applyViewport(w, h)
       }
       window.addEventListener('resize', onResizeHandler)
 
