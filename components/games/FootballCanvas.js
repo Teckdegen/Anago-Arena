@@ -1,16 +1,14 @@
 ﻿/**
- * Head Ball — 1v1 side-view, big dog heads, physics ball
- * Controls: left/right move, up jump, A = power kick, T = tackle
- * PVP: Supabase Realtime via FootballSync
- * First to 5 goals OR most goals after 90s wins
+ * Head Ball — rebuilt with real dog characters, 2.5D goals, better feel
+ * Landscape optimised, smaller controls, stadium atmosphere
  */
 import { useEffect, useRef } from "react"
 
-const GRAVITY  = 0.52
-const JUMP_V   = -17
-const SPD      = 4.8
-const BALL_R   = 20
-const DOG_R    = 34
+const GRAVITY  = 0.48
+const JUMP_V   = -18
+const SPD      = 5.2
+const BALL_R   = 18
+const HEAD_R   = 42   // bigger dog head
 const WIN      = 5
 const GAME_SEC = 90
 
@@ -32,8 +30,8 @@ export default function FootballCanvas({ config }) {
     const isPVP  = config?.mode === "pvp"
     const localSide = config?.side || "left"
 
-    const p1 = { x:CW*0.22, y:FLOOR-DOG_R, vx:0, vy:0, onGround:true, color:"#C17A2A", name:"YOU",  side:"left",  minX:GOAL_W+DOG_R, maxX:MID_X-DOG_R-4, power:false, powerTimer:0, tackleCd:0 }
-    const p2 = { x:CW*0.78, y:FLOOR-DOG_R, vx:0, vy:0, onGround:true, color:"#5B3FDB", name:isPVP?(config?.opponent||"P2"):"AI", side:"right", minX:MID_X+DOG_R+4, maxX:CW-GOAL_W-DOG_R, power:false, powerTimer:0, tackleCd:0 }
+    const p1 = { x:CW*0.22, y:FLOOR-HEAD_R, vx:0, vy:0, onGround:true, color:"#C17A2A", darkColor:"#8B5010", name:"YOU",  side:"left",  minX:GOAL_W+HEAD_R, maxX:MID_X-HEAD_R-4, power:false, powerTimer:0, tackleCd:0, kickAnim:0 }
+    const p2 = { x:CW*0.78, y:FLOOR-HEAD_R, vx:0, vy:0, onGround:true, color:"#5B3FDB", darkColor:"#3A2490", name:isPVP?(config?.opponent||"P2"):"AI", side:"right", minX:MID_X+HEAD_R+4, maxX:CW-GOAL_W-HEAD_R, power:false, powerTimer:0, tackleCd:0, kickAnim:0 }
     const ball = { x:MID_X, y:CH*0.28, vx:2, vy:-3, spin:0 }
 
     let scores=[0,0], timeLeft=GAME_SEC, gameOver=false, lastTime=performance.now()
@@ -101,12 +99,13 @@ export default function FootballCanvas({ config }) {
     window.addEventListener("keyup",onKeyUp)
 
     function layoutButtons(){
-      const bw=72,bh=72,gap=8,by=CH-bh-12
-      BTN.left={x:12,y:by,w:bw,h:bh}
-      BTN.right={x:12+bw+gap,y:by,w:bw,h:bh}
-      BTN.up={x:CW-bw-12,y:by,w:bw,h:bh}
-      BTN.a={x:CW-bw*2-gap-12,y:by,w:bw,h:bh}
-      BTN.t={x:CW-bw*3-gap*2-12,y:by,w:bw,h:bh}
+      // Smaller buttons for landscape
+      const bw=52,bh=52,gap=6,by=CH-bh-10
+      BTN.left={x:10,y:by,w:bw,h:bh}
+      BTN.right={x:10+bw+gap,y:by,w:bw,h:bh}
+      BTN.up={x:CW-bw-10,y:by,w:bw,h:bh}
+      BTN.a={x:CW-bw*2-gap-10,y:by,w:bw,h:bh}
+      BTN.t={x:CW-bw*3-gap*2-10,y:by,w:bw,h:bh}
     }
     layoutButtons()
 
@@ -119,8 +118,8 @@ export default function FootballCanvas({ config }) {
       if(Math.abs(dx)>8)p2.vx=Math.sign(dx)*SPD*0.88
       else p2.vx=0
       if(ball.y<p2.y-30&&p2.onGround&&Math.abs(dx)<160){p2.vy=JUMP_V;p2.onGround=false}
-      if(Math.hypot(ball.x-p2.x,ball.y-p2.y)<DOG_R+BALL_R+12){p2.power=true;p2.powerTimer=0.15}
-      if(p2.tackleCd<=0&&Math.hypot(p1.x-p2.x,p1.y-p2.y)<DOG_R*2.8&&Math.random()<0.06){
+      if(Math.hypot(ball.x-p2.x,ball.y-p2.y)<HEAD_R+BALL_R+12){p2.power=true;p2.powerTimer=0.15}
+      if(p2.tackleCd<=0&&Math.hypot(p1.x-p2.x,p1.y-p2.y)<HEAD_R*2.8&&Math.random()<0.06){
         ball.vx=(ball.x-p1.x>0?1:-1)*7;ball.vy=-5;p1.vx=(p1.x-p2.x>0?1:-1)*6;p1.vy=-5;p2.tackleCd=1.5
       }
       if(p2.tackleCd>0)p2.tackleCd-=delta
@@ -128,11 +127,12 @@ export default function FootballCanvas({ config }) {
 
     function updatePlayer(p,delta){
       p.vy+=GRAVITY;p.x+=p.vx;p.y+=p.vy;p.vx*=0.80
-      if(p.y+DOG_R>=FLOOR){p.y=FLOOR-DOG_R;p.vy=0;p.onGround=true}
-      if(p.y-DOG_R<=CEIL){p.y=CEIL+DOG_R;p.vy*=-0.4}
+      if(p.y+HEAD_R>=FLOOR){p.y=FLOOR-HEAD_R;p.vy=0;p.onGround=true}
+      if(p.y-HEAD_R<=CEIL){p.y=CEIL+HEAD_R;p.vy*=-0.4}
       p.x=Math.max(p.minX,Math.min(p.maxX,p.x))
       if(p.powerTimer>0){p.powerTimer-=delta;if(p.powerTimer<=0)p.power=false}
       if(p.tackleCd>0)p.tackleCd-=delta
+      if(p.kickAnim>0)p.kickAnim-=delta
     }
 
     function updateBall(){
@@ -142,10 +142,10 @@ export default function FootballCanvas({ config }) {
       if(ball.x-BALL_R<=GOAL_W){if(ball.y>GOAL_Y){doGoal(1);return}ball.x=GOAL_W+BALL_R;ball.vx*=-0.65}
       if(ball.x+BALL_R>=CW-GOAL_W){if(ball.y>GOAL_Y){doGoal(0);return}ball.x=CW-GOAL_W-BALL_R;ball.vx*=-0.65}
       for(const p of [p1,p2]){
-        const dx=ball.x-p.x,dy=ball.y-p.y,dd=Math.hypot(dx,dy),minD=DOG_R+BALL_R
+        const dx=ball.x-p.x,dy=ball.y-p.y,dd=Math.hypot(dx,dy),minD=HEAD_R+BALL_R
         if(dd<minD&&dd>0){
           const nx=dx/dd,ny=dy/dd,rv=(ball.vx-p.vx)*nx+(ball.vy-p.vy)*ny
-          if(rv<0){const imp=-rv*(p.power?2.4:1.7);ball.vx+=nx*imp;ball.vy+=ny*imp-(p.power?4:1.5)}
+          if(rv<0){const imp=-rv*(p.power?2.6:1.8);ball.vx+=nx*imp;ball.vy+=ny*imp-(p.power?5:2);p.kickAnim=0.2}
           const ov=minD-dd;ball.x+=nx*ov;ball.y+=ny*ov
         }
       }
@@ -165,52 +165,231 @@ export default function FootballCanvas({ config }) {
 
     function resetBall(){ball.x=MID_X;ball.y=CH*0.28;ball.vx=(Math.random()>0.5?1:-1)*2.5;ball.vy=-4;ball.spin=0}
 
-    // Draw
     function drawBg(){
+      // Sky gradient — stadium atmosphere
       const g=ctx.createLinearGradient(0,0,0,CH)
-      g.addColorStop(0,"#1a1a2e");g.addColorStop(0.5,"#16213e");g.addColorStop(1,"#0f3460")
+      g.addColorStop(0,"#0a0a1a");g.addColorStop(0.3,"#1a1a3e");g.addColorStop(1,"#0f2010")
       ctx.fillStyle=g;ctx.fillRect(0,0,CW,CH)
-      ctx.fillStyle="rgba(255,255,255,0.05)"
-      for(let i=0;i<50;i++){const cx=(i/50)*CW,cy=18+Math.sin(i*1.4)*10;ctx.beginPath();ctx.arc(cx,cy,6+Math.sin(i)*2,0,Math.PI*2);ctx.fill()}
-      ctx.fillStyle="#2d8a2d";ctx.fillRect(0,CEIL,CW,FLOOR-CEIL)
-      ctx.fillStyle="rgba(0,0,0,0.07)"
-      for(let i=0;i<8;i+=2)ctx.fillRect(i*CW/8,CEIL,CW/8,FLOOR-CEIL)
-      ctx.fillStyle="#1a6b1a";ctx.fillRect(0,FLOOR,CW,CH-FLOOR)
-      ctx.strokeStyle="rgba(255,255,255,0.65)";ctx.lineWidth=2
-      ctx.beginPath();ctx.moveTo(MID_X,CEIL);ctx.lineTo(MID_X,FLOOR);ctx.stroke()
-      ctx.beginPath();ctx.arc(MID_X,FLOOR,60,Math.PI,0);ctx.stroke()
-      ctx.fillStyle="rgba(255,255,255,0.65)";ctx.beginPath();ctx.arc(MID_X,FLOOR,5,0,Math.PI*2);ctx.fill()
+
+      // Stadium lights glow
+      for(const lx of [CW*0.15,CW*0.5,CW*0.85]){
+        const lg=ctx.createRadialGradient(lx,0,0,lx,0,CH*0.4)
+        lg.addColorStop(0,"rgba(255,255,200,0.12)");lg.addColorStop(1,"transparent")
+        ctx.fillStyle=lg;ctx.fillRect(0,0,CW,CH)
+      }
+
+      // Crowd silhouette — more detailed
+      ctx.fillStyle="rgba(80,60,120,0.6)"
+      for(let i=0;i<80;i++){
+        const cx=(i/80)*CW,cy=CEIL-8+Math.sin(i*2.1)*6
+        const r=5+Math.sin(i*1.3)*2
+        ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill()
+      }
+      // Second row
+      ctx.fillStyle="rgba(60,40,100,0.5)"
+      for(let i=0;i<60;i++){
+        const cx=(i/60)*CW+CW/120,cy=CEIL-20+Math.sin(i*1.7)*5
+        ctx.beginPath();ctx.arc(cx,cy,4+Math.sin(i)*1.5,0,Math.PI*2);ctx.fill()
+      }
+
+      // Pitch — bright green with stripes
+      ctx.fillStyle="#1a7a1a";ctx.fillRect(0,CEIL,CW,FLOOR-CEIL)
+      for(let i=0;i<10;i++){
+        ctx.fillStyle=i%2===0?"rgba(0,0,0,0.06)":"rgba(255,255,255,0.03)"
+        ctx.fillRect(i*CW/10,CEIL,CW/10,FLOOR-CEIL)
+      }
+
+      // Pitch lines
+      ctx.strokeStyle="rgba(255,255,255,0.7)";ctx.lineWidth=2
+      // Centre line
+      ctx.beginPath();ctx.moveTo(MID_X,CEIL+10);ctx.lineTo(MID_X,FLOOR);ctx.stroke()
+      // Centre circle
+      ctx.beginPath();ctx.arc(MID_X,FLOOR,CH*0.12,Math.PI,0);ctx.stroke()
+      ctx.fillStyle="rgba(255,255,255,0.7)";ctx.beginPath();ctx.arc(MID_X,FLOOR,4,0,Math.PI*2);ctx.fill()
+      // Penalty areas
+      const penW=CW*0.12,penH=(FLOOR-CEIL)*0.55,penY=FLOOR-penH
+      ctx.strokeRect(0,penY,penW,penH)
+      ctx.strokeRect(CW-penW,penY,penW,penH)
+
+      // Ground
+      ctx.fillStyle="#0f4a0f";ctx.fillRect(0,FLOOR,CW,CH-FLOOR)
+      // Ground line
+      ctx.fillStyle="#1a6b1a";ctx.fillRect(0,FLOOR,CW,4)
     }
 
     function drawGoals(){
-      for(const [gx,col] of [[0,"rgba(193,122,42,0.35)"],[CW-GOAL_W,"rgba(91,63,219,0.35)"]]){
-        ctx.fillStyle=col;ctx.fillRect(gx,GOAL_Y,GOAL_W,GOAL_H)
-        ctx.strokeStyle="#FFF";ctx.lineWidth=3;ctx.strokeRect(gx,GOAL_Y,GOAL_W,GOAL_H)
-        ctx.strokeStyle="rgba(255,255,255,0.2)";ctx.lineWidth=1
-        for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(gx,GOAL_Y+GOAL_H*i/5);ctx.lineTo(gx+GOAL_W,GOAL_Y+GOAL_H*i/5);ctx.stroke()}
-        for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(gx+GOAL_W*i/3,GOAL_Y);ctx.lineTo(gx+GOAL_W*i/3,FLOOR);ctx.stroke()}
+      // 2.5D perspective goals — depth effect
+      const GH=GOAL_H, GW=GOAL_W
+      const depth=18  // depth of goal in pixels
+
+      for(const [isLeft,teamCol] of [[true,"#C17A2A"],[false,"#5B3FDB"]]){
+        const gx=isLeft?0:CW-GW
+        const gy=GOAL_Y
+
+        // Back net (darker, perspective)
+        ctx.fillStyle="rgba(255,255,255,0.08)"
+        if(isLeft){
+          ctx.beginPath()
+          ctx.moveTo(gx+GW,gy);ctx.lineTo(gx+GW+depth,gy-depth*0.5)
+          ctx.lineTo(gx+GW+depth,gy+GH-depth*0.5);ctx.lineTo(gx+GW,gy+GH)
+          ctx.closePath();ctx.fill()
+        } else {
+          ctx.beginPath()
+          ctx.moveTo(gx,gy);ctx.lineTo(gx-depth,gy-depth*0.5)
+          ctx.lineTo(gx-depth,gy+GH-depth*0.5);ctx.lineTo(gx,gy+GH)
+          ctx.closePath();ctx.fill()
+        }
+
+        // Net pattern on back
+        ctx.strokeStyle="rgba(255,255,255,0.15)";ctx.lineWidth=1
+        const nx=isLeft?gx+GW:gx-depth, nx2=isLeft?gx+GW+depth:gx
+        for(let i=0;i<=5;i++){
+          const t=i/5
+          const y1=gy+GH*t, y2=gy+GH*t-depth*0.5
+          ctx.beginPath();ctx.moveTo(nx,y1);ctx.lineTo(nx2,y2);ctx.stroke()
+        }
+        for(let i=0;i<=4;i++){
+          const t=i/4
+          const x1=nx+t*(nx2-nx), x2=nx+t*(nx2-nx)
+          ctx.beginPath();ctx.moveTo(x1,gy);ctx.lineTo(x2,gy+GH-depth*0.5);ctx.stroke()
+        }
+
+        // Front net (main face)
+        ctx.fillStyle=`rgba(${isLeft?"193,122,42":"91,63,219"},0.2)`
+        ctx.fillRect(gx,gy,GW,GH)
+
+        // Net grid on front
+        ctx.strokeStyle="rgba(255,255,255,0.3)";ctx.lineWidth=1
+        for(let i=1;i<6;i++){ctx.beginPath();ctx.moveTo(gx,gy+GH*i/6);ctx.lineTo(gx+GW,gy+GH*i/6);ctx.stroke()}
+        for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(gx+GW*i/3,gy);ctx.lineTo(gx+GW*i/3,gy+GH);ctx.stroke()}
+
+        // Goal posts — white thick
+        ctx.strokeStyle="#FFFFFF";ctx.lineWidth=4
+        ctx.strokeRect(gx,gy,GW,GH)
+
+        // Post shadow
+        ctx.strokeStyle="rgba(0,0,0,0.4)";ctx.lineWidth=2
+        ctx.strokeRect(gx+1,gy+1,GW,GH)
+
+        // Team colour accent on post
+        ctx.strokeStyle=teamCol;ctx.lineWidth=3
+        ctx.beginPath()
+        if(isLeft){ctx.moveTo(gx+GW,gy);ctx.lineTo(gx+GW,gy+GH)}
+        else{ctx.moveTo(gx,gy);ctx.lineTo(gx,gy+GH)}
+        ctx.stroke()
       }
     }
 
+    // Real French Bulldog head character
     function drawDog(p){
+      const R=HEAD_R
       ctx.save();ctx.translate(p.x,p.y)
-      ctx.fillStyle="rgba(0,0,0,0.22)";ctx.beginPath();ctx.ellipse(0,DOG_R+4,DOG_R*0.8,7,0,0,Math.PI*2);ctx.fill()
-      if(p.power){ctx.shadowColor="#FFD700";ctx.shadowBlur=22;ctx.strokeStyle="#FFD700";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,DOG_R+9,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0}
-      ctx.fillStyle=p.color;ctx.strokeStyle="#1A1A1A";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,DOG_R,0,Math.PI*2);ctx.fill();ctx.stroke()
-      ctx.fillStyle="#C4956A";ctx.beginPath();ctx.ellipse(6,4,DOG_R*0.46,DOG_R*0.38,0.3,0,Math.PI*2);ctx.fill()
-      ctx.fillStyle=p.color;ctx.strokeStyle="#1A1A1A";ctx.lineWidth=2.5
-      ctx.beginPath();ctx.ellipse(-DOG_R*0.72,-DOG_R*0.72,7,13,-0.4,0,Math.PI*2);ctx.fill();ctx.stroke()
-      ctx.beginPath();ctx.ellipse(DOG_R*0.72,-DOG_R*0.72,7,13,0.4,0,Math.PI*2);ctx.fill();ctx.stroke()
-      ctx.fillStyle="#F4A0A0";ctx.beginPath();ctx.ellipse(-DOG_R*0.7,-DOG_R*0.7,4,8,-0.4,0,Math.PI*2);ctx.fill()
-      ctx.beginPath();ctx.ellipse(DOG_R*0.7,-DOG_R*0.7,4,8,0.4,0,Math.PI*2);ctx.fill()
-      ctx.fillStyle="#1A1A1A";ctx.beginPath();ctx.arc(-10,-8,5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(10,-8,5,0,Math.PI*2);ctx.fill()
-      ctx.fillStyle="#FFF";ctx.beginPath();ctx.arc(-8,-10,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(12,-10,2,0,Math.PI*2);ctx.fill()
-      ctx.fillStyle="#C4956A";ctx.strokeStyle="#1A1A1A";ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(2,4,11,8,0,0,Math.PI*2);ctx.fill();ctx.stroke()
-      ctx.fillStyle="#1A1A1A";ctx.beginPath();ctx.arc(2,2,4,0,Math.PI*2);ctx.fill()
-      ctx.strokeStyle=p.side==="left"?"#5B3FDB":"#C17A2A";ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,DOG_R*0.3,DOG_R*0.7,-2.3,-0.8);ctx.stroke()
-      ctx.fillStyle="rgba(20,10,50,0.88)";ctx.strokeStyle="#2D2D2D";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(-30,DOG_R+8,60,18,4);ctx.fill();ctx.stroke()
-      ctx.fillStyle=p.side==="left"?"#C17A2A":"#8B7FDB";ctx.font="bold 8px 'Press Start 2P',monospace";ctx.textAlign="center";ctx.textBaseline="middle"
-      ctx.fillText(p.name.slice(0,6),0,DOG_R+17)
+
+      // Kick animation tilt
+      if(p.kickAnim>0){
+        const tilt=(p.side==="left"?1:-1)*0.3*(p.kickAnim/0.2)
+        ctx.rotate(tilt)
+      }
+
+      // Shadow
+      ctx.fillStyle="rgba(0,0,0,0.3)"
+      ctx.beginPath();ctx.ellipse(0,R+6,R*0.85,8,0,0,Math.PI*2);ctx.fill()
+
+      // Power glow
+      if(p.power){
+        ctx.shadowColor="#FFD700";ctx.shadowBlur=28
+        ctx.strokeStyle="#FFD700";ctx.lineWidth=4
+        ctx.beginPath();ctx.arc(0,0,R+12,0,Math.PI*2);ctx.stroke()
+        ctx.shadowBlur=0
+      }
+
+      // ── BODY (small, below head) ──────────────────────
+      ctx.fillStyle=p.darkColor;ctx.strokeStyle="#1A1008";ctx.lineWidth=2.5
+      ctx.beginPath();ctx.ellipse(0,R*0.55,R*0.55,R*0.38,0,0,Math.PI*2);ctx.fill();ctx.stroke()
+      // Belly
+      ctx.fillStyle="#F5EFE0"
+      ctx.beginPath();ctx.ellipse(0,R*0.62,R*0.28,R*0.22,0,0,Math.PI*2);ctx.fill()
+
+      // ── HEAD (big, dominant) ──────────────────────────
+      ctx.fillStyle=p.color;ctx.strokeStyle="#1A1008";ctx.lineWidth=3
+      ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.fill();ctx.stroke()
+
+      // Tan face markings (brindle pattern)
+      ctx.fillStyle="#C4956A"
+      ctx.beginPath();ctx.ellipse(R*0.18,-R*0.05,R*0.42,R*0.35,0.25,0,Math.PI*2);ctx.fill()
+      ctx.beginPath();ctx.ellipse(-R*0.12,R*0.08,R*0.22,R*0.18,-0.2,0,Math.PI*2);ctx.fill()
+
+      // ── EARS (large pointed French Bulldog ears) ──────
+      ctx.fillStyle=p.color;ctx.strokeStyle="#1A1008";ctx.lineWidth=2.5
+      // Left ear
+      ctx.beginPath()
+      ctx.moveTo(-R*0.45,-R*0.55)
+      ctx.quadraticCurveTo(-R*0.95,-R*1.15,-R*0.55,-R*1.35)
+      ctx.quadraticCurveTo(-R*0.15,-R*1.15,-R*0.2,-R*0.6)
+      ctx.closePath();ctx.fill();ctx.stroke()
+      // Right ear
+      ctx.beginPath()
+      ctx.moveTo(R*0.45,-R*0.55)
+      ctx.quadraticCurveTo(R*0.95,-R*1.15,R*0.55,-R*1.35)
+      ctx.quadraticCurveTo(R*0.15,-R*1.15,R*0.2,-R*0.6)
+      ctx.closePath();ctx.fill();ctx.stroke()
+      // Inner ear pink
+      ctx.fillStyle="#F4A0A0"
+      ctx.beginPath()
+      ctx.moveTo(-R*0.42,-R*0.6)
+      ctx.quadraticCurveTo(-R*0.78,-R*1.05,-R*0.52,-R*1.22)
+      ctx.quadraticCurveTo(-R*0.22,-R*1.05,-R*0.25,-R*0.65)
+      ctx.closePath();ctx.fill()
+      ctx.beginPath()
+      ctx.moveTo(R*0.42,-R*0.6)
+      ctx.quadraticCurveTo(R*0.78,-R*1.05,R*0.52,-R*1.22)
+      ctx.quadraticCurveTo(R*0.22,-R*1.05,R*0.25,-R*0.65)
+      ctx.closePath();ctx.fill()
+
+      // ── EYES (closed happy arcs) ──────────────────────
+      ctx.strokeStyle="#1A1008";ctx.lineWidth=3;ctx.lineCap="round"
+      // Left eye — closed arc
+      ctx.beginPath();ctx.arc(-R*0.32,-R*0.22,R*0.18,Math.PI*0.1,Math.PI*0.9);ctx.stroke()
+      // Right eye
+      ctx.beginPath();ctx.arc(R*0.32,-R*0.22,R*0.18,Math.PI*0.1,Math.PI*0.9);ctx.stroke()
+      // Eye shine dots
+      ctx.fillStyle="#1A1008"
+      ctx.beginPath();ctx.arc(-R*0.32,-R*0.22,R*0.06,0,Math.PI*2);ctx.fill()
+      ctx.beginPath();ctx.arc(R*0.32,-R*0.22,R*0.06,0,Math.PI*2);ctx.fill()
+
+      // ── SNOUT (big flat bulldog snout) ────────────────
+      ctx.fillStyle="#C4956A";ctx.strokeStyle="#1A1008";ctx.lineWidth=2.5
+      ctx.beginPath();ctx.ellipse(0,R*0.12,R*0.42,R*0.28,0,0,Math.PI*2);ctx.fill();ctx.stroke()
+      // Nose
+      ctx.fillStyle="#1A1008"
+      ctx.beginPath();ctx.ellipse(0,-R*0.02,R*0.2,R*0.14,0,0,Math.PI*2);ctx.fill()
+      // Nostrils
+      ctx.fillStyle="#0A0502"
+      ctx.beginPath();ctx.ellipse(-R*0.1,R*0.02,R*0.06,R*0.04,0,0,Math.PI*2);ctx.fill()
+      ctx.beginPath();ctx.ellipse(R*0.1,R*0.02,R*0.06,R*0.04,0,0,Math.PI*2);ctx.fill()
+      // Mouth wrinkles
+      ctx.strokeStyle="#8B5010";ctx.lineWidth=1.5
+      ctx.beginPath();ctx.moveTo(-R*0.15,R*0.2);ctx.quadraticCurveTo(-R*0.08,R*0.28,0,R*0.22);ctx.stroke()
+      ctx.beginPath();ctx.moveTo(R*0.15,R*0.2);ctx.quadraticCurveTo(R*0.08,R*0.28,0,R*0.22);ctx.stroke()
+
+      // ── COLLAR ────────────────────────────────────────
+      const collarCol=p.side==="left"?"#5B3FDB":"#C17A2A"
+      ctx.strokeStyle=collarCol;ctx.lineWidth=6;ctx.lineCap="round"
+      ctx.beginPath();ctx.arc(0,R*0.42,R*0.72,-2.4,-0.75);ctx.stroke()
+      // Collar tag
+      ctx.fillStyle=collarCol;ctx.strokeStyle="#1A1008";ctx.lineWidth=2
+      ctx.beginPath();ctx.arc(0,R*0.78,R*0.12,0,Math.PI*2);ctx.fill();ctx.stroke()
+      ctx.fillStyle="#FFF";ctx.font=`bold ${R*0.12}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle"
+      ctx.fillText("★",0,R*0.78)
+
+      // ── NAME TAG ──────────────────────────────────────
+      ctx.fillStyle="rgba(10,5,30,0.9)";ctx.strokeStyle="#2D2D2D";ctx.lineWidth=2
+      ctx.beginPath();ctx.roundRect(-R*0.85,R+10,R*1.7,20,5);ctx.fill();ctx.stroke()
+      ctx.fillStyle=p.side==="left"?"#C17A2A":"#8B7FDB"
+      ctx.font=`bold ${Math.max(7,R*0.22)}px 'Press Start 2P',monospace`
+      ctx.textAlign="center";ctx.textBaseline="middle"
+      ctx.fillText(p.name.slice(0,6),0,R+20)
+
       ctx.restore()
     }
 
@@ -259,10 +438,10 @@ export default function FootballCanvas({ config }) {
       if(keys.right)p1.vx=SPD
       if(!keys.left&&!keys.right)p1.vx*=0.72
       if(keys.up&&p1.onGround){p1.vy=JUMP_V;p1.onGround=false;if(isPVP&&sync)sync.broadcastInput({jump:true})}
-      if(keys.a){p1.power=true;p1.powerTimer=0.15;if(isPVP&&sync)sync.broadcastInput({power:true})}
+      if(keys.a){p1.power=true;p1.powerTimer=0.15;p1.kickAnim=0.2;if(isPVP&&sync)sync.broadcastInput({power:true})}
       if(keys.t&&p1.tackleCd<=0){
         const d=Math.hypot(p2.x-p1.x,p2.y-p1.y)
-        if(d<DOG_R*2.8){ball.vx=(ball.x-p2.x>0?1:-1)*8;ball.vy=-6;p2.vx=(p2.x-p1.x>0?1:-1)*7;p2.vy=-6;p1.tackleCd=1.5;if(isPVP&&sync)sync.broadcastInput({tackle:true})}
+        if(d<HEAD_R*2.8){ball.vx=(ball.x-p2.x>0?1:-1)*8;ball.vy=-6;p2.vx=(p2.x-p1.x>0?1:-1)*7;p2.vy=-6;p1.tackleCd=1.5;if(isPVP&&sync)sync.broadcastInput({tackle:true})}
       }
       if(p1.tackleCd>0)p1.tackleCd-=delta
 
