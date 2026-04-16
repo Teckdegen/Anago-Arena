@@ -44,21 +44,26 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      renderer.setScissorTest(true)
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera — OrthographicCamera fills screen exactly ────
-      // Court is 24 units wide (x: -12..12) and 14 units tall (y: 0..14).
-      // OrthographicCamera maps world units directly to screen pixels —
-      // no FOV math, no aspect ratio issues, always full screen on any device.
+      // ── Scene + Camera — OrthographicCamera fills PLAYABLE screen area ────
+      // HUD panels at top (~70px), quit button at bottom (~50px).
+      // Court should fill the space between them.
       const scene = new THREE.Scene()
+
+      const HUD_TOP_PX    = 70   // HUD panels height
+      const QUIT_BOT_PX   = 55   // Quit button height
+      const playableH     = H - HUD_TOP_PX - QUIT_BOT_PX
+      const playableAspect = W / playableH
 
       const COURT_W  = 24   // total width  (-12 to +12)
       const COURT_H  = 14   // total height (0 to 14)
       const COURT_CX = 0    // center x
       const COURT_CY = 7    // center y
 
-      function makeOrthoCamera(w, h) {
-        const screenAspect = w / h
+      function makeOrthoCamera(w, playH) {
+        const screenAspect = w / playH
         const courtAspect  = COURT_W / COURT_H
 
         let halfW, halfH
@@ -84,7 +89,7 @@ export default function GameCanvas({ mode, level, user, room }) {
         return { cam, halfW, halfH }
       }
 
-      const { cam: camera } = makeOrthoCamera(W, H)
+      const { cam: camera } = makeOrthoCamera(W, playableH)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -218,12 +223,24 @@ export default function GameCanvas({ mode, level, user, room }) {
       })
       turnManager.start()
 
-      // ── Resize ────────────────────────────────────────
+      // ── Viewport helpers — render only into the playable strip ──────────
+      // HUD_TOP_PX from top, QUIT_BOT_PX from bottom.
+      // WebGL Y is bottom-up, so bottom of viewport = QUIT_BOT_PX from bottom.
+      function applyViewport(w, h) {
+        const vx = 0
+        const vy = QUIT_BOT_PX                    // WebGL Y=0 is bottom
+        const vw = w
+        const vh = h - HUD_TOP_PX - QUIT_BOT_PX
+        renderer.setViewport(vx, vy, vw, vh)
+        renderer.setScissor(vx, vy, vw, vh)
+      }
+      applyViewport(W, H)
       onResizeHandler = () => {
         if (!container) return
         const w = container.clientWidth
         const h = container.clientHeight
-        const screenAspect = w / h
+        const playH = h - HUD_TOP_PX - QUIT_BOT_PX
+        const screenAspect = w / playH
         const courtAspect  = COURT_W / COURT_H
 
         let halfW, halfH
@@ -241,6 +258,7 @@ export default function GameCanvas({ mode, level, user, room }) {
         camera.bottom = COURT_CY - halfH
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
+        applyViewport(w, h)
       }
       window.addEventListener('resize', onResizeHandler)
 
@@ -293,9 +311,15 @@ export default function GameCanvas({ mode, level, user, room }) {
 
   return (
     <>
+      {/* Canvas fills only the playable area between HUD and quit button */}
       <div
         ref={mountRef}
-        style={{ width: '100vw', height: '100vh', overflow: 'hidden', touchAction: 'none' }}
+        style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          overflow: 'hidden',
+          touchAction: 'none',
+        }}
       />
 
       {/* ── Cartoon loading screen ── */}

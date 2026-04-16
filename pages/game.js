@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import dynamic from 'next/dynamic'
 import GameLobby from '../components/GameLobby'
-import { updateUserStats } from '../lib/supabase'
+import { updateUserStats, supabase } from '../lib/supabase'
 import { PawIcon, TrophyIcon, SkullIcon, ArrowLeftIcon } from '../components/Icons'
 
 const GameCanvas = dynamic(() => import('../components/GameCanvas'), { ssr: false })
@@ -20,8 +20,10 @@ export default function BasketballPage() {
   const [scorePopups, setScorePopups] = useState([])
   const [stunned, setStunned] = useState(null)
 
-  const stunRef   = useRef(null)
-  const popupRef  = useRef(0)
+  const stunRef      = useRef(null)
+  const popupRef     = useRef(0)
+  const waitSubRef   = useRef(null)   // realtime subscription while waiting
+  const waitConfigRef = useRef(null)  // gameConfig snapshot for the waiting room
 
   useEffect(() => {
     const saved = localStorage.getItem('bb_user')
@@ -29,6 +31,13 @@ export default function BasketballPage() {
     const u = JSON.parse(saved)
     setUser(u)
     setLevel(parseInt(localStorage.getItem('bb_level') || '1'))
+  }, [])
+
+  // Cleanup waiting subscription on unmount
+  useEffect(() => {
+    return () => {
+      waitSubRef.current?.unsubscribe?.()
+    }
   }, [])
 
   // BB_GAME_UI bridge — used by the Three.js game engine
@@ -67,6 +76,48 @@ export default function BasketballPage() {
     return () => { delete window.BB_GAME_UI }
   }, [])
 
+  // ── Start waiting for opponent (host only) ─────────────────────────────────
+  function startWaiting(config) {
+    waitConfigRef.current = config
+    setGameConfig(config)
+    setGameState('waiting')
+
+    // Subscribe to this specific room's changes
+    const sub = supabase
+      .channel(`room-watch:${config.roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${config.roomId}` },
+        (payload) => {
+          const room = payload.new
+          if (room.status === 'active' && room.guest_username) {
+            // Opponent joined — store their name and start the game
+            localStorage.setItem('bb_pvp_opponent', room.guest_username)
+            waitSubRef.current?.unsubscribe?.()
+            waitSubRef.current = null
+            setGameConfig(prev => ({ ...prev, opponent: room.guest_username }))
+            setGameState('playing')
+          }
+        }
+      )
+      .subscribe()
+
+    waitSubRef.current = sub
+  }
+
+  // ── Cancel waiting — delete room and go back to lobby ─────────────────────
+  async function cancelWaiting() {
+    waitSubRef.current?.unsubscribe?.()
+    waitSubRef.current = null
+    const roomId = waitConfigRef.current?.roomId
+    if (roomId) {
+      await fetch(`/api/rooms?id=${roomId}`, { method: 'DELETE' }).catch(() => {})
+    }
+    waitConfigRef.current = null
+    setGameConfig(null)
+    setGameState('lobby')
+  }
+
   function handleNextLevel() {
     const next = level + 1
     localStorage.setItem('bb_level', String(next))
@@ -95,10 +146,110 @@ export default function BasketballPage() {
           setGameState('playing')
         }}
         onStartPVP={({ roomId, side, opponent }) => {
-          setGameConfig({ mode: 'pvp', roomId, side, opponent })
-          setGameState('playing')
+          const config = { mode: 'pvp', roomId, side, opponent }
+          if (side === 'left') {
+            // Host — wait for opponent to join
+            startWaiting(config)
+          } else {
+            // Guest — opponent already in room, start immediately
+            if (opponent) localStorage.setItem('bb_pvp_opponent', opponent)
+            setGameConfig(config)
+            setGameState('playing')
+          }
         }}
       />
+    </>
+  )
+
+  // ── WAITING FOR OPPONENT ───────────────────────────────────────────────────
+  if (gameState === 'waiting') return (
+    <>
+      <Head><title>BasketBattle – Waiting...</title></Head>
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'linear-gradient(160deg, #1E1540 0%, #2A1E6E 50%, #3A2490 100%)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 32, padding: 24,
+      }}>
+        {/* Bouncing ball */}
+        <div style={{ animation: 'loadBounce 0.6s ease-in-out infinite alternate' }}>
+          <svg width={72} height={72} viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="14" fill="#C17A2A" stroke="#2D2D2D" strokeWidth="2.5" />
+            <path d="M6 8 C9 11 10 13.5 10 16 S9 21 6 24" stroke="#2D2D2D" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <path d="M26 8 C23 11 22 13.5 22 16 S23 21 26 24" stroke="#2D2D2D" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <line x1="2" y1="16" x2="30" y2="16" stroke="#2D2D2D" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <p className="font-arcade" style={{
+            fontSize: 'clamp(13px, 4vw, 20px)',
+            color: '#F5EFE0',
+            textShadow: '3px 3px 0 #2D2D2D',
+            marginBottom: 12,
+          }}>
+            WAITING FOR
+          </p>
+          <p className="font-arcade" style={{
+            fontSize: 'clamp(13px, 4vw, 20px)',
+            color: '#C17A2A',
+            textShadow: '3px 3px 0 #2D2D2D',
+            marginBottom: 20,
+            animation: 'loadPulse 1.2s ease-in-out infinite',
+          }}>
+            OPPONENT...
+          </p>
+          <p className="font-arcade" style={{ fontSize: 9, color: 'rgba(245,239,224,0.45)', lineHeight: 2 }}>
+            Share this room with a friend.<br />
+            Game starts when they join.
+          </p>
+        </div>
+
+        {/* Animated dots */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          {[0,1,2,3].map(i => (
+            <div key={i} style={{
+              width: 12, height: 12,
+              borderRadius: '50%',
+              background: '#C17A2A',
+              border: '2px solid #2D2D2D',
+              animation: `loadDot 1s ease-in-out ${i * 0.2}s infinite`,
+            }} />
+          ))}
+        </div>
+
+        {/* Cancel */}
+        <button
+          onClick={cancelWaiting}
+          className="font-arcade"
+          style={{
+            marginTop: 8,
+            fontSize: 10, color: 'rgba(244,160,160,0.8)',
+            background: 'rgba(30,21,64,0.8)',
+            border: '2px solid rgba(244,160,160,0.4)',
+            borderRadius: 8, padding: '10px 24px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+          }}
+        >
+          <ArrowLeftIcon size={14} color="currentColor" /> CANCEL
+        </button>
+
+        <style>{`
+          @keyframes loadBounce {
+            from { transform: translateY(0px) scale(1); }
+            to   { transform: translateY(-20px) scale(0.92); }
+          }
+          @keyframes loadPulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
+          }
+          @keyframes loadDot {
+            0%, 100% { transform: scale(1);   opacity: 0.4; }
+            50%       { transform: scale(1.5); opacity: 1;   }
+          }
+        `}</style>
+      </div>
     </>
   )
 
@@ -118,7 +269,8 @@ export default function BasketballPage() {
       {/* HUD overlay */}
       {!result && (
         <div className="fixed inset-0 pointer-events-none z-10">
-          <div className="flex justify-between items-start p-3 gap-2">
+        <div className="flex justify-between items-start p-3 gap-2"
+          style={{ height: 70, alignItems: 'center' }}>
             <div className="hud-panel">
               <p className="hud-score" style={{ color: '#C17A2A', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <PawIcon size={12} color="#C17A2A" /> {user?.username || 'YOU'}
@@ -137,8 +289,9 @@ export default function BasketballPage() {
             </div>
           </div>
 
-          {/* Quit button */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
+          {/* Quit button — fixed height zone matching QUIT_BOT_PX=55 */}
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-auto"
+            style={{ height: 55, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <button
               onClick={() => { setGameState('lobby'); setScores([0, 0]); setResult(null) }}
               className="font-arcade"
