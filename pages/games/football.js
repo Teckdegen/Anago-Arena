@@ -38,6 +38,18 @@ export default function FootballPage() {
     return () => { delete window.ANAGO_UI }
   }, [])
 
+  // Auto-rotate to landscape when game starts, unlock when leaving
+  useEffect(() => {
+    if (gameState === 'playing') {
+      try { screen.orientation?.lock?.('landscape').catch(() => {}) } catch {}
+    } else {
+      try { screen.orientation?.unlock?.() } catch {}
+    }
+    return () => {
+      try { screen.orientation?.unlock?.() } catch {}
+    }
+  }, [gameState])
+
   if (gameState === 'lobby') return (
     <>
       <Head><title>Head Ball – ANAGO ARENA</title></Head>
@@ -51,6 +63,26 @@ export default function FootballPage() {
   if (gameState === 'playing') return (
     <>
       <Head><title>Head Ball – ANAGO ARENA</title></Head>
+
+      {/* Rotate to landscape prompt for portrait devices */}
+      <div style={{
+        display: 'none',
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: '#1E1540',
+        flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 20,
+      }} className="portrait-only">
+        <div style={{ fontSize: 64, animation: 'spin90 1.5s ease-in-out infinite alternate' }}>📱</div>
+        <p className="font-arcade" style={{ fontSize: 12, color: '#F5EFE0', textAlign: 'center', textShadow: '2px 2px 0 #2D2D2D' }}>
+          ROTATE YOUR<br/>PHONE
+        </p>
+        <style>{`
+          @media (orientation: portrait) { .portrait-only { display: flex !important; } }
+          @keyframes spin90 { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
+        `}</style>
+      </div>
+
       <div className="fixed bottom-20 left-1/2 z-20 pointer-events-auto" style={{ transform: 'translateX(-50%)' }}>
         <button className="btn-arcade purple" style={{ fontSize: 7, padding: '6px 14px' }}
           onClick={() => { setGameState('lobby'); setScores([0, 0]) }}>
