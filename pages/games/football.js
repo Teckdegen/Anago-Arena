@@ -64,23 +64,18 @@ export default function FootballPage() {
     <>
       <Head><title>Head Ball – ANAGO ARENA</title></Head>
 
-      {/* Rotate to landscape prompt for portrait devices */}
+      {/* Small non-blocking rotate hint — only shows in portrait, doesn't block game */}
       <div style={{
-        display: 'none',
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: '#1E1540',
-        flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        gap: 20,
-      }} className="portrait-only">
-        <div style={{ fontSize: 64, animation: 'spin90 1.5s ease-in-out infinite alternate' }}>📱</div>
-        <p className="font-arcade" style={{ fontSize: 12, color: '#F5EFE0', textAlign: 'center', textShadow: '2px 2px 0 #2D2D2D' }}>
-          ROTATE YOUR<br/>PHONE
-        </p>
-        <style>{`
-          @media (orientation: portrait) { .portrait-only { display: flex !important; } }
-          @keyframes spin90 { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
-        `}</style>
+        position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 200, pointerEvents: 'none',
+        background: 'rgba(30,21,64,0.92)',
+        border: '2px solid #C17A2A',
+        borderRadius: 8, padding: '6px 14px',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }} className="portrait-hint">
+        <span style={{ fontSize: 18 }}>📱→</span>
+        <span className="font-arcade" style={{ fontSize: 7, color: '#F5EFE0' }}>ROTATE PHONE</span>
+        <style>{`@media (orientation: landscape) { .portrait-hint { display: none !important; } }`}</style>
       </div>
 
       <div className="fixed bottom-20 left-1/2 z-20 pointer-events-auto" style={{ transform: 'translateX(-50%)' }}>

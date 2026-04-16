@@ -82,7 +82,8 @@ export default function GameCanvas({ mode, level, user, room }) {
       court.rebuild(levelConfig)
 
       // ── Court boundary outline (visible walls) ────────
-      const hw = GAME_CONFIG.COURT_HALF_WIDTH
+      const { GAME_CONFIG: GC } = await import('../lib/game/config')
+      const hw = GC.COURT_HALF_WIDTH
       const wallMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 3 })
       const wallGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-hw, 0, 0),
