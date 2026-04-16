@@ -46,15 +46,45 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera — FIXED, covers full court ────
+      // ── Scene + Camera — OrthographicCamera fills screen exactly ────
+      // Court is 24 units wide (x: -12..12) and 14 units tall (y: 0..14).
+      // OrthographicCamera maps world units directly to screen pixels —
+      // no FOV math, no aspect ratio issues, always full screen on any device.
       const scene = new THREE.Scene()
-      // Fixed camera: wide enough to see the full 16-unit wide court
-      // Court half-width = 8, so full width = 16
-      // Camera at Z=18, looking at center, FOV 70 covers it all
-      const camera = new THREE.PerspectiveCamera(70, W / H, 0.1, 200)
-      camera.position.set(0, 4, 18)
-      camera.lookAt(0, 4, 0)
-      // Camera never moves — no CameraSystem shake/follow
+
+      const COURT_W  = 24   // total width  (-12 to +12)
+      const COURT_H  = 14   // total height (0 to 14)
+      const COURT_CX = 0    // center x
+      const COURT_CY = 7    // center y
+
+      function makeOrthoCamera(w, h) {
+        const screenAspect = w / h
+        const courtAspect  = COURT_W / COURT_H
+
+        let halfW, halfH
+        if (screenAspect > courtAspect) {
+          // Screen is wider than court — fit height, let width expand
+          halfH = COURT_H / 2
+          halfW = halfH * screenAspect
+        } else {
+          // Screen is taller than court — fit width, let height expand
+          halfW = COURT_W / 2
+          halfH = halfW / screenAspect
+        }
+
+        const cam = new THREE.OrthographicCamera(
+          COURT_CX - halfW,  // left
+          COURT_CX + halfW,  // right
+          COURT_CY + halfH,  // top
+          COURT_CY - halfH,  // bottom
+          0.1, 200
+        )
+        cam.position.set(COURT_CX, COURT_CY, 50)
+        cam.lookAt(COURT_CX, COURT_CY, 0)
+        return { cam, halfW, halfH }
+      }
+
+      const { cam: camera } = makeOrthoCamera(W, H)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -83,13 +113,13 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       // ── Court boundary outline (visible walls) ────────
       const { GAME_CONFIG: GC } = await import('../lib/game/config')
-      const hw = GC.COURT_HALF_WIDTH
+      const hw = GC.COURT_HALF_WIDTH  // 12
       const wallMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 3 })
       const wallGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-hw, 0, 0),
         new THREE.Vector3( hw, 0, 0),
-        new THREE.Vector3( hw, 11, 0),
-        new THREE.Vector3(-hw, 11, 0),
+        new THREE.Vector3( hw, 14, 0),
+        new THREE.Vector3(-hw, 14, 0),
         new THREE.Vector3(-hw, 0, 0),
       ])
       const wallOutline = new THREE.Line(wallGeo, wallMat)
@@ -151,6 +181,7 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       const ballSystem = new BallSystem(world, [ball1, ball2], hoop, scoreSystem, THREE, CANNON)
       ballSystem.setLevelConfig(levelConfig)
+      ballSystem.setCourt(court)
 
       // ── PVP Sync ──────────────────────────────────────
       if (isPVP && room) {
@@ -192,7 +223,22 @@ export default function GameCanvas({ mode, level, user, room }) {
         if (!container) return
         const w = container.clientWidth
         const h = container.clientHeight
-        camera.aspect = w / h
+        const screenAspect = w / h
+        const courtAspect  = COURT_W / COURT_H
+
+        let halfW, halfH
+        if (screenAspect > courtAspect) {
+          halfH = COURT_H / 2
+          halfW = halfH * screenAspect
+        } else {
+          halfW = COURT_W / 2
+          halfH = halfW / screenAspect
+        }
+
+        camera.left   = COURT_CX - halfW
+        camera.right  = COURT_CX + halfW
+        camera.top    = COURT_CY + halfH
+        camera.bottom = COURT_CY - halfH
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
       }
