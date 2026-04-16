@@ -5,7 +5,6 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
-import { useDisconnect } from 'wagmi'
 import { getOpenGameRooms, createGameRoom, joinRoom, subscribeToRooms } from '../lib/supabase'
 import { BotIcon, UsersIcon, TrophyIcon, PawIcon, XIcon, PlusIcon, ArrowLeftIcon } from './Icons'
 
@@ -15,7 +14,6 @@ function shortenAddress(addr) {
 
 export default function GameLobby({ gameId, gameName, gameEmoji, accentColor = '#C17A2A', onStartAI, onStartPVP }) {
   const router = useRouter()
-  const { disconnect } = useDisconnect()
   const [user, setUser] = useState(null)
   const [level, setLevel] = useState(1)
   const [totalPoints, setTotalPoints] = useState(0)
