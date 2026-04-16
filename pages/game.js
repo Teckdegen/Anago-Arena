@@ -291,7 +291,13 @@ export default function BasketballPage() {
           {/* Quit button */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto">
             <button
-              onClick={() => { setGameState('lobby'); setScores([0, 0]); setResult(null) }}
+              onClick={async () => {
+                // Clean up PVP room if quitting mid-game
+                if (gameConfig?.mode === 'pvp' && gameConfig?.roomId) {
+                  await fetch(`/api/rooms?id=${gameConfig.roomId}`, { method: 'DELETE' }).catch(() => {})
+                }
+                setGameState('lobby'); setScores([0, 0]); setResult(null)
+              }}
               className="font-arcade"
               style={{
                 fontSize: 8, color: 'rgba(244,160,160,0.7)',

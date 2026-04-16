@@ -78,21 +78,32 @@ function setupCommands(b) {
     if (!username) return ctx.reply('Usage: /rank <username>')
 
     const supabase = getSupabase()
-    const { data: all } = await supabase
+
+    // Find the player first
+    const { data: player } = await supabase
       .from('users')
       .select('username, wallet_address, total_points, highest_level')
-      .order('total_points', { ascending: false })
+      .ilike('username', username)
+      .single()
 
-    const idx = all?.findIndex(p => p.username.toLowerCase() === username.toLowerCase())
-    if (idx === -1 || idx == null) return ctx.reply(`Player "${username}" not found.`)
+    if (!player) return ctx.reply(`Player "${username}" not found.`)
 
-    const p = all[idx]
+    // Count how many players have more points (efficient rank query)
+    const { count: above } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gt('total_points', player.total_points)
+
+    const { count: total } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+
     ctx.reply(
-      `🏀 *${p.username}*\n` +
-      `📍 Rank: *#${idx + 1}* of ${all.length}\n` +
-      `💰 Wallet: \`${short(p.wallet_address)}\`\n` +
-      `⭐ Points: ${p.total_points}\n` +
-      `🎮 Level: ${p.highest_level}`,
+      `🏀 *${player.username}*\n` +
+      `📍 Rank: *#${(above || 0) + 1}* of ${total || '?'}\n` +
+      `💰 Wallet: \`${short(player.wallet_address)}\`\n` +
+      `⭐ Points: ${player.total_points}\n` +
+      `🎮 Level: ${player.highest_level}`,
       { parse_mode: 'Markdown' }
     )
   })

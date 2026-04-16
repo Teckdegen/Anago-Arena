@@ -17,13 +17,16 @@ const GAME_LABELS = {
   tower:      '🏗️ Bark Tower',
 }
 
+const MAX_ROWS = 100
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate')
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const supabase = getAdmin()
-  const gameId   = req.query.game   // optional — if set, return per-game leaderboard
+  const gameId   = req.query.game
+  const limit    = Math.min(parseInt(req.query.limit || '100', 10), MAX_ROWS)
 
   if (gameId && GAME_LABELS[gameId]) {
     // Per-game leaderboard — join with users for username
@@ -32,22 +35,26 @@ export default async function handler(req, res) {
       .select('wallet_address, best_score, games_played, games_won')
       .eq('game_id', gameId)
       .order('best_score', { ascending: false })
+      .limit(limit)
 
     if (error) return res.status(500).json({ error: error.message })
 
-    // Fetch usernames
+    // Batch fetch usernames for the returned wallets only
     const wallets = (scores || []).map(s => s.wallet_address)
-    const { data: users } = await supabase
-      .from('users')
-      .select('wallet_address, username')
-      .in('wallet_address', wallets)
-
     const userMap = {}
-    ;(users || []).forEach(u => { userMap[u.wallet_address] = u.username })
 
-    const leaderboard = (scores || []).map(s => ({
-      ...s,
+    if (wallets.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('wallet_address, username')
+        .in('wallet_address', wallets)
+      ;(users || []).forEach(u => { userMap[u.wallet_address] = u.username })
+    }
+
+    const leaderboard = (scores || []).map((s, i) => ({
+      rank:     i + 1,
       username: userMap[s.wallet_address] || 'Unknown',
+      ...s,
     }))
 
     return res.status(200).json({
@@ -58,16 +65,19 @@ export default async function handler(req, res) {
     })
   }
 
-  // Central leaderboard — all users by total_points
+  // Central leaderboard — all users by total_points, with limit
   const { data, error, count } = await supabase
     .from('users')
     .select('wallet_address, username, total_points, highest_level, games_played, games_won', { count: 'exact' })
     .order('total_points', { ascending: false })
+    .limit(limit)
 
   if (error) return res.status(500).json({ error: error.message })
 
+  const leaderboard = (data || []).map((u, i) => ({ rank: i + 1, ...u }))
+
   res.status(200).json({
-    leaderboard: data || [],
-    total: count || (data || []).length,
+    leaderboard,
+    total: count || leaderboard.length,
   })
 }

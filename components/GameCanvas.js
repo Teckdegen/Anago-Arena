@@ -55,25 +55,17 @@ export default function GameCanvas({ mode, level, user, room }) {
       const COURT_CY = COURT_H / 2   // 16
 
       function makeOrthoCamera(w, h) {
+        // ALWAYS fit court height to screen height — let width expand as needed.
+        // This guarantees the court fills top-to-bottom on any screen.
         const screenAspect = w / h
-        const courtAspect  = COURT_W / COURT_H
-
-        let halfW, halfH
-        if (screenAspect > courtAspect) {
-          // Screen is wider than court — fit height, let width expand
-          halfH = COURT_H / 2
-          halfW = halfH * screenAspect
-        } else {
-          // Screen is taller than court — fit width, let height expand
-          halfW = COURT_W / 2
-          halfH = halfW / screenAspect
-        }
+        const halfH = COURT_H / 2
+        const halfW = halfH * screenAspect   // width expands to fill screen width
 
         const cam = new THREE.OrthographicCamera(
-          COURT_CX - halfW,  // left
-          COURT_CX + halfW,  // right
-          COURT_CY + halfH,  // top
-          COURT_CY - halfH,  // bottom
+          COURT_CX - halfW,
+          COURT_CX + halfW,
+          COURT_CY + halfH,
+          COURT_CY - halfH,
           0.1, 200
         )
         cam.position.set(COURT_CX, COURT_CY, 50)
@@ -186,10 +178,18 @@ export default function GameCanvas({ mode, level, user, room }) {
         const { PVPSync } = await import('../lib/game/systems/PVPSync')
         pvpSync = new PVPSync(room, localSide)
 
-        // Show HUD connection state while waiting for opponent
-        pvpSync.on('onConnected', () => {
-          window.BB_GAME_UI?.updateScore(0, 0)
-        })
+        pvpSync
+          .on('onConnected', () => {
+            window.BB_GAME_UI?.updateScore(0, 0)
+          })
+          .on('onOpponentReady', () => {
+            // Opponent is live — safe to start
+            window.BB_GAME_UI?.updateScore(0, 0)
+          })
+          .on('onOpponentDisconnect', () => {
+            // Opponent dropped — end the game, local player wins
+            window.BB_GAME_UI?.showResult(localSide === 'left' ? 0 : 1, scoreSystem.scores)
+          })
 
         pvpSync.connect()
       }
@@ -221,16 +221,8 @@ export default function GameCanvas({ mode, level, user, room }) {
         const w = container.clientWidth
         const h = container.clientHeight
         const screenAspect = w / h
-        const courtAspect  = COURT_W / COURT_H
-
-        let halfW, halfH
-        if (screenAspect > courtAspect) {
-          halfH = COURT_H / 2
-          halfW = halfH * screenAspect
-        } else {
-          halfW = COURT_W / 2
-          halfH = halfW / screenAspect
-        }
+        const halfH = COURT_H / 2
+        const halfW = halfH * screenAspect
 
         camera.left   = COURT_CX - halfW
         camera.right  = COURT_CX + halfW
