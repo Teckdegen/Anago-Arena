@@ -12,9 +12,11 @@ export default async function handler(req, res) {
 
   // GET — list open rooms, clean up stale ones
   if (req.method === 'GET') {
-    // Delete rooms older than 10 minutes that are still 'open' (host left)
-    const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-    await supabase.from('rooms').delete().eq('status', 'open').lt('created_at', cutoff)
+    // Delete rooms older than 5 minutes (open) or 2 hours (active/finished)
+    const openCutoff   = new Date(Date.now() - 5  * 60 * 1000).toISOString()
+    const activeCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    await supabase.from('rooms').delete().eq('status', 'open').lt('created_at', openCutoff)
+    await supabase.from('rooms').delete().in('status', ['active', 'finished']).lt('created_at', activeCutoff)
 
     const { data, error } = await supabase
       .from('rooms')
