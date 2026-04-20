@@ -36,13 +36,14 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       const container = mountRef.current
 
-      // Use window dimensions — container may not be laid out yet
-      const W = window.innerWidth
-      const H = window.innerHeight
+      // screen.width/height = actual device pixels, unaffected by browser chrome
+      // On mobile, window.innerHeight shrinks when address bar is visible
+      const W = window.screen.width
+      const H = window.screen.height
 
-      // ── Renderer ─────────────────────────────────────
+      // ── Renderer — size to actual window, not screen ──
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
-      renderer.setSize(W, H)
+      renderer.setSize(window.innerWidth, window.innerHeight)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -50,19 +51,20 @@ export default function GameCanvas({ mode, level, user, room }) {
       container.appendChild(renderer.domElement)
 
       // ── Scene + Camera ────────────────────────────────
-      // Court width = 24 units fixed. Height = derived from screen so it fills exactly.
+      // Court width = 24 units. Height derived from SCREEN aspect (not window)
+      // so the court always fills the full device screen top-to-bottom.
       const scene = new THREE.Scene()
 
       const COURT_W  = 24
-      const COURT_H  = COURT_W * (H / W)   // e.g. portrait 390x844 → 24*(844/390) = 51.9
+      const COURT_H  = COURT_W * (H / W)
       const COURT_CX = 0
       const COURT_CY = COURT_H / 2
 
       const camera = new THREE.OrthographicCamera(
-        -COURT_W / 2,  // left  = -12
-         COURT_W / 2,  // right = +12
-         COURT_H + 1,  // top   (1 unit padding above)
-        -1,            // bottom (-1 unit so floor/players aren't cut off)
+        -COURT_W / 2,
+         COURT_W / 2,
+         COURT_H + 1,   // +1 so floor/players aren't clipped at bottom
+        -1,
         0.1, 200
       )
       camera.position.set(0, COURT_CY, 50)
@@ -211,9 +213,10 @@ export default function GameCanvas({ mode, level, user, room }) {
       // ── Resize ────────────────────────────────────────
       onResizeHandler = () => {
         if (!container) return
-        const w = window.innerWidth
-        const h = window.innerHeight
-        const newCourtH = COURT_W * (h / w)
+        // Recalculate using screen dimensions for court ratio
+        const sw = window.screen.width
+        const sh = window.screen.height
+        const newCourtH = COURT_W * (sh / sw)
         camera.top    = newCourtH + 1
         camera.bottom = -1
         camera.left   = -COURT_W / 2
@@ -221,7 +224,7 @@ export default function GameCanvas({ mode, level, user, room }) {
         camera.position.set(0, newCourtH / 2, 50)
         camera.lookAt(0, newCourtH / 2, 0)
         camera.updateProjectionMatrix()
-        renderer.setSize(w, h)
+        renderer.setSize(window.innerWidth, window.innerHeight)
       }
       window.addEventListener('resize', onResizeHandler)
 
