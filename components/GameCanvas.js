@@ -44,36 +44,31 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      // Set clear color to match court bg — no grey bars on any screen size
+      renderer.setClearColor(0x5BB8F5)
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera — OrthographicCamera fills screen exactly ────
+      // ── Scene + Camera — court fills 100% of screen, no bars ever ────
+      // Strategy: fix court WIDTH at 24 units, derive height from screen aspect.
+      // Camera maps exactly: left=-12, right=12, bottom=0, top=COURT_H.
+      // Background planes are 200×200 so they always cover everything.
       const scene = new THREE.Scene()
 
-      const COURT_W  = 24   // total width  (-12 to +12)
-      const COURT_H  = 32   // total height (0 to 32) — tall enough to fill portrait screens
+      const COURT_W  = 24                        // fixed width (-12 to +12)
+      const COURT_H  = COURT_W * (H / W)         // height derived from screen — always fills exactly
       const COURT_CX = 0
-      const COURT_CY = COURT_H / 2   // 16
+      const COURT_CY = COURT_H / 2
 
-      function makeOrthoCamera(w, h) {
-        // ALWAYS fit court height to screen height — let width expand as needed.
-        // This guarantees the court fills top-to-bottom on any screen.
-        const screenAspect = w / h
-        const halfH = COURT_H / 2
-        const halfW = halfH * screenAspect   // width expands to fill screen width
-
-        const cam = new THREE.OrthographicCamera(
-          COURT_CX - halfW,
-          COURT_CX + halfW,
-          COURT_CY + halfH,
-          COURT_CY - halfH,
-          0.1, 200
-        )
-        cam.position.set(COURT_CX, COURT_CY, 50)
-        cam.lookAt(COURT_CX, COURT_CY, 0)
-        return cam
-      }
-
-      const camera = makeOrthoCamera(W, H)
+      // Simple ortho camera — court world coords map 1:1 to screen
+      const camera = new THREE.OrthographicCamera(
+        -COURT_W / 2,   // left  = -12
+         COURT_W / 2,   // right = +12
+         COURT_H,       // top   = full height
+         0,             // bottom = 0
+        0.1, 200
+      )
+      camera.position.set(COURT_CX, COURT_CY, 50)
+      camera.lookAt(COURT_CX, COURT_CY, 0)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -94,13 +89,13 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       // ── Game Scene ────────────────────────────────────
       const gameScene = new GameScene(scene, renderer, THREE)
-      gameScene.setup(levelConfig)
+      gameScene.setup(levelConfig, COURT_H)
 
       // ── Court ─────────────────────────────────────────
       const court = new Court(scene, world, THREE, CANNON)
-      court.rebuild(levelConfig)
+      court.rebuild(levelConfig, COURT_H)
 
-      // ── Court boundary outline (visible walls) ────────
+      // ── Court boundary outline ────────────────────────
       const { GAME_CONFIG: GC } = await import('../lib/game/config')
       const hw = GC.COURT_HALF_WIDTH  // 12
       const wallMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 3 })
@@ -114,8 +109,8 @@ export default function GameCanvas({ mode, level, user, room }) {
       const wallOutline = new THREE.Line(wallGeo, wallMat)
       scene.add(wallOutline)
 
-      // ── Hoop — placed high up in the tall court ───────
-      const hoopY  = (levelConfig.wallHeight || 5) + 8   // high up
+      // ── Hoop — placed at 60% of court height ──────────
+      const hoopY  = COURT_H * 0.60
       const hoopX  = levelConfig.hoopOffsetX || 0
       const hoop   = new Hoop(scene, world, THREE, CANNON, { x: hoopX, y: hoopY, z: 0 }, levelConfig.hoopRadius)
 
@@ -220,14 +215,13 @@ export default function GameCanvas({ mode, level, user, room }) {
         if (!container) return
         const w = container.clientWidth
         const h = container.clientHeight
-        const screenAspect = w / h
-        const halfH = COURT_H / 2
-        const halfW = halfH * screenAspect
-
-        camera.left   = COURT_CX - halfW
-        camera.right  = COURT_CX + halfW
-        camera.top    = COURT_CY + halfH
-        camera.bottom = COURT_CY - halfH
+        const newCourtH = COURT_W * (h / w)
+        camera.top    = newCourtH
+        camera.bottom = 0
+        camera.left   = -COURT_W / 2
+        camera.right  =  COURT_W / 2
+        camera.position.set(COURT_CX, newCourtH / 2, 50)
+        camera.lookAt(COURT_CX, newCourtH / 2, 0)
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
       }
