@@ -322,6 +322,32 @@ input.arcade-input:focus {
 }
 .spin { animation: spin 0.8s linear infinite; }
 
+/* ── Seasonal page backgrounds ──────────────────────────────────────────────
+   Applied to <body> via _app.js based on the player's current level theme.
+   All keep the brand's dark cartoon aesthetic but shift the gradient hue.
+───────────────────────────────────────────────────────────────────────────── */
+body.season-summer {
+  background: linear-gradient(160deg, #2A1B5E 0%, #5B3FDB 50%, #3B1E6A 100%);
+}
+body.season-autumn {
+  background: linear-gradient(160deg, #2D100A 0%, #6B2A10 40%, #4A1808 80%, #2D100A 100%);
+}
+body.season-winter {
+  background: linear-gradient(160deg, #0D1B2A 0%, #1A2A4A 45%, #0F2035 80%, #0D1B2A 100%);
+}
+body.season-spring {
+  background: linear-gradient(160deg, #0A2416 0%, #1A5E36 45%, #0E3B22 80%, #0A2416 100%);
+}
+body.season-night {
+  background: linear-gradient(160deg, #050310 0%, #0D0A20 40%, #1A0F3E 80%, #050310 100%);
+}
+
+/* ── Seasonal accent overrides — card borders tint with season ── */
+body.season-autumn  .cartoon-card { border-color: #7D3C0A; box-shadow: 5px 5px 0 #7D3C0A; }
+body.season-winter  .cartoon-card { border-color: #2C3E50; box-shadow: 5px 5px 0 #2C3E50; }
+body.season-spring  .cartoon-card { border-color: #1E8449; box-shadow: 5px 5px 0 #1E8449; }
+body.season-night   .cartoon-card { border-color: #2A1E6E; box-shadow: 5px 5px 0 #2A1E6E; }
+
 /* ── Glow effects ── */
 .glow-amber  { box-shadow: 0 0 22px rgba(193, 122, 42, 0.55); }
 .glow-purple { box-shadow: 0 0 22px rgba(91, 63, 219, 0.65); }
