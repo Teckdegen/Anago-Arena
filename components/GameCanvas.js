@@ -98,22 +98,8 @@ export default function GameCanvas({ mode, level, user, room }) {
       const court = new Court(scene, world, THREE, CANNON)
       court.rebuild(levelConfig, COURT_H)
 
-      // ── Court boundary outline ────────────────────────
-      const { GAME_CONFIG: GC } = await import('../lib/game/config')
-      const hw = GC.COURT_HALF_WIDTH  // 12
-      const wallMat = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 3 })
-      const wallGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-hw, 0, 0),
-        new THREE.Vector3( hw, 0, 0),
-        new THREE.Vector3( hw, COURT_H, 0),
-        new THREE.Vector3(-hw, COURT_H, 0),
-        new THREE.Vector3(-hw, 0, 0),
-      ])
-      const wallOutline = new THREE.Line(wallGeo, wallMat)
-      scene.add(wallOutline)
-
-      // ── Hoop — placed at 60% of court height ──────────
-      const hoopY  = COURT_H * 0.60
+      // ── Hoop — placed at 68% of court height ──────────
+      const hoopY  = COURT_H * 0.68
       const hoopX  = levelConfig.hoopOffsetX || 0
       const hoop   = new Hoop(scene, world, THREE, CANNON, { x: hoopX, y: hoopY, z: 0 }, levelConfig.hoopRadius)
 
