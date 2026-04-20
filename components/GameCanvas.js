@@ -35,8 +35,10 @@ export default function GameCanvas({ mode, level, user, room }) {
       const { getLevelConfig } = await import('../lib/game/config')
 
       const container = mountRef.current
-      const W = container.clientWidth
-      const H = container.clientHeight
+
+      // Use window dimensions — container may not be laid out yet
+      const W = window.innerWidth
+      const H = window.innerHeight
 
       // ── Renderer ─────────────────────────────────────
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
@@ -44,31 +46,27 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
-      // Set clear color to match court bg — no grey bars on any screen size
       renderer.setClearColor(0x5BB8F5)
       container.appendChild(renderer.domElement)
 
-      // ── Scene + Camera — court fills 100% of screen, no bars ever ────
-      // Strategy: fix court WIDTH at 24 units, derive height from screen aspect.
-      // Camera maps exactly: left=-12, right=12, bottom=0, top=COURT_H.
-      // Background planes are 200×200 so they always cover everything.
+      // ── Scene + Camera ────────────────────────────────
+      // Court width = 24 units fixed. Height = derived from screen so it fills exactly.
       const scene = new THREE.Scene()
 
-      const COURT_W  = 24                        // fixed width (-12 to +12)
-      const COURT_H  = COURT_W * (H / W)         // height derived from screen — always fills exactly
+      const COURT_W  = 24
+      const COURT_H  = COURT_W * (H / W)   // e.g. portrait 390x844 → 24*(844/390) = 51.9
       const COURT_CX = 0
       const COURT_CY = COURT_H / 2
 
-      // Simple ortho camera — court world coords map 1:1 to screen
       const camera = new THREE.OrthographicCamera(
-        -COURT_W / 2,   // left  = -12
-         COURT_W / 2,   // right = +12
-         COURT_H,       // top   = full height
-         0,             // bottom = 0
+        -COURT_W / 2,  // left  = -12
+         COURT_W / 2,  // right = +12
+         COURT_H + 1,  // top   (1 unit padding above)
+        -1,            // bottom (-1 unit so floor/players aren't cut off)
         0.1, 200
       )
-      camera.position.set(COURT_CX, COURT_CY, 50)
-      camera.lookAt(COURT_CX, COURT_CY, 0)
+      camera.position.set(0, COURT_CY, 50)
+      camera.lookAt(0, COURT_CY, 0)
 
       // ── Physics World ─────────────────────────────────
       const lvl = parseInt(level) || 1
@@ -213,15 +211,15 @@ export default function GameCanvas({ mode, level, user, room }) {
       // ── Resize ────────────────────────────────────────
       onResizeHandler = () => {
         if (!container) return
-        const w = container.clientWidth
-        const h = container.clientHeight
+        const w = window.innerWidth
+        const h = window.innerHeight
         const newCourtH = COURT_W * (h / w)
-        camera.top    = newCourtH
-        camera.bottom = 0
+        camera.top    = newCourtH + 1
+        camera.bottom = -1
         camera.left   = -COURT_W / 2
         camera.right  =  COURT_W / 2
-        camera.position.set(COURT_CX, newCourtH / 2, 50)
-        camera.lookAt(COURT_CX, newCourtH / 2, 0)
+        camera.position.set(0, newCourtH / 2, 50)
+        camera.lookAt(0, newCourtH / 2, 0)
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
       }
@@ -276,14 +274,17 @@ export default function GameCanvas({ mode, level, user, room }) {
 
   return (
     <>
-      {/* Canvas fills only the playable area between HUD and quit button */}
+      {/* Canvas — full screen, no gaps */}
       <div
         ref={mountRef}
         style={{
           position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
+          top: 0, left: 0,
+          width: '100vw',
+          height: '100vh',
           overflow: 'hidden',
           touchAction: 'none',
+          margin: 0, padding: 0,
         }}
       />
 
