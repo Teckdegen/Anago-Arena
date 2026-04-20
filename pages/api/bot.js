@@ -1,16 +1,7 @@
 import { Telegraf } from 'telegraf'
 import { createClient } from '@supabase/supabase-js'
 
-let bot = null
-
-function getBot() {
-  if (!bot) {
-    bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
-    setupCommands(bot)
-  }
-  return bot
-}
-
+// ── Supabase admin client ─────────────────────────────────
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,138 +14,218 @@ function short(addr) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function setupCommands(b) {
-  b.start(ctx => ctx.reply(
-    '🏀 *Welcome to BasketBattle Bot!*\n\n' +
-    'Commands:\n' +
+// ── Build bot with all commands ───────────────────────────
+function buildBot() {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error('TELEGRAM_BOT_TOKEN is not set')
+
+  const bot = new Telegraf(token)
+
+  // /start — welcome + game link
+  bot.start(ctx => ctx.reply(
+    '🏀 *Welcome to ANAGO ARENA!*\n\n' +
+    'The ultimate dog sports arena — play basketball, earn points, climb the leaderboard!\n\n' +
+    '🎮 *Play now:* https://anago\\-arena\\.vercel\\.app\n\n' +
+    '*Commands:*\n' +
+    '/play — Get the game link\n' +
     '/leaderboard — Top 10 players\n' +
     '/top5 — Top 5 players\n' +
     '/rank <username> — Player rank\n' +
     '/stats <username> — Player stats',
-    { parse_mode: 'Markdown' }
+    { parse_mode: 'MarkdownV2' }
   ))
 
-  b.command('leaderboard', async ctx => {
-    const supabase = getSupabase()
-    const { data } = await supabase
-      .from('users')
-      .select('username, wallet_address, total_points, highest_level')
-      .order('total_points', { ascending: false })
-      .limit(10)
+  // /play — direct game link
+  bot.command('play', ctx => ctx.reply(
+    '🏀 *ANAGO ARENA*\n\n' +
+    'Click to play:\n' +
+    'https://anago\\-arena\\.vercel\\.app\n\n' +
+    '_Connect your wallet and enter the arena\\!_',
+    { parse_mode: 'MarkdownV2' }
+  ))
 
-    if (!data?.length) return ctx.reply('No players yet!')
+  // /leaderboard — top 10
+  bot.command('leaderboard', async ctx => {
+    try {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from('users')
+        .select('username, wallet_address, total_points, highest_level')
+        .order('total_points', { ascending: false })
+        .limit(10)
 
-    const medals = ['🥇', '🥈', '🥉']
-    let msg = '🏀 *BASKETBATTLE LEADERBOARD*\n\n'
-    data.forEach((p, i) => {
-      msg += `${medals[i] || `${i + 1}.`} *${p.username}*\n`
-      msg += `   💰 \`${short(p.wallet_address)}\`\n`
-      msg += `   ⭐ ${p.total_points} pts  |  Lvl ${p.highest_level}\n\n`
-    })
-    ctx.reply(msg, { parse_mode: 'Markdown' })
+      if (error) throw error
+      if (!data?.length) return ctx.reply('No players yet\\! Be the first: https://anago\\-arena\\.vercel\\.app', { parse_mode: 'MarkdownV2' })
+
+      const medals = ['🥇', '🥈', '🥉', '4\\.', '5\\.', '6\\.', '7\\.', '8\\.', '9\\.', '10\\.']
+      let msg = '🏀 *ANAGO ARENA — TOP 10*\n\n'
+      data.forEach((p, i) => {
+        const name = escapeMarkdown(p.username)
+        msg += `${medals[i]} *${name}*\n`
+        msg += `   ⭐ ${p.total_points} pts  \\|  Lvl ${p.highest_level}\n`
+        msg += `   💰 \`${short(p.wallet_address)}\`\n\n`
+      })
+      msg += '🎮 Play: https://anago\\-arena\\.vercel\\.app'
+      ctx.reply(msg, { parse_mode: 'MarkdownV2' })
+    } catch (err) {
+      console.error('/leaderboard error:', err)
+      ctx.reply('❌ Could not fetch leaderboard. Try again later.')
+    }
   })
 
-  b.command('top5', async ctx => {
-    const supabase = getSupabase()
-    const { data } = await supabase
-      .from('users')
-      .select('username, wallet_address, total_points, highest_level')
-      .order('total_points', { ascending: false })
-      .limit(5)
+  // /top5
+  bot.command('top5', async ctx => {
+    try {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from('users')
+        .select('username, wallet_address, total_points, highest_level')
+        .order('total_points', { ascending: false })
+        .limit(5)
 
-    if (!data?.length) return ctx.reply('No players yet!')
+      if (error) throw error
+      if (!data?.length) return ctx.reply('No players yet\\!', { parse_mode: 'MarkdownV2' })
 
-    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
-    let msg = '🏀 *TOP 5 PLAYERS*\n\n'
-    data.forEach((p, i) => {
-      msg += `${medals[i]} *${p.username}* — ${p.total_points} pts\n`
-      msg += `   \`${short(p.wallet_address)}\`  |  Lvl ${p.highest_level}\n\n`
-    })
-    ctx.reply(msg, { parse_mode: 'Markdown' })
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣']
+      let msg = '🏀 *TOP 5 PLAYERS*\n\n'
+      data.forEach((p, i) => {
+        const name = escapeMarkdown(p.username)
+        msg += `${medals[i]} *${name}* — ${p.total_points} pts\n`
+        msg += `   \`${short(p.wallet_address)}\`  \\|  Lvl ${p.highest_level}\n\n`
+      })
+      ctx.reply(msg, { parse_mode: 'MarkdownV2' })
+    } catch (err) {
+      console.error('/top5 error:', err)
+      ctx.reply('❌ Could not fetch top 5. Try again later.')
+    }
   })
 
-  b.command('rank', async ctx => {
-    const username = ctx.message.text.split(' ')[1]
-    if (!username) return ctx.reply('Usage: /rank <username>')
+  // /rank <username>
+  bot.command('rank', async ctx => {
+    try {
+      const parts = ctx.message.text.split(' ')
+      const username = parts[1]
+      if (!username) return ctx.reply('Usage: /rank <username>')
 
-    const supabase = getSupabase()
+      const supabase = getSupabase()
 
-    // Find the player first
-    const { data: player } = await supabase
-      .from('users')
-      .select('username, wallet_address, total_points, highest_level')
-      .ilike('username', username)
-      .single()
+      const { data: player, error: pErr } = await supabase
+        .from('users')
+        .select('username, wallet_address, total_points, highest_level')
+        .ilike('username', username)
+        .single()
 
-    if (!player) return ctx.reply(`Player "${username}" not found.`)
+      if (pErr || !player) return ctx.reply(`Player "${username}" not found\\.`, { parse_mode: 'MarkdownV2' })
 
-    // Count how many players have more points (efficient rank query)
-    const { count: above } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .gt('total_points', player.total_points)
+      const { count: above } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .gt('total_points', player.total_points)
 
-    const { count: total } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
+      const { count: total } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
 
+      const rank = (above || 0) + 1
+      const name = escapeMarkdown(player.username)
+
+      ctx.reply(
+        `🏀 *${name}*\n` +
+        `📍 Rank: *\\#${rank}* of ${total || '?'}\n` +
+        `💰 Wallet: \`${short(player.wallet_address)}\`\n` +
+        `⭐ Points: ${player.total_points}\n` +
+        `🎮 Level: ${player.highest_level}`,
+        { parse_mode: 'MarkdownV2' }
+      )
+    } catch (err) {
+      console.error('/rank error:', err)
+      ctx.reply('❌ Could not fetch rank. Try again later.')
+    }
+  })
+
+  // /stats <username>
+  bot.command('stats', async ctx => {
+    try {
+      const parts = ctx.message.text.split(' ')
+      const username = parts[1]
+      if (!username) return ctx.reply('Usage: /stats <username>')
+
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .ilike('username', username)
+        .single()
+
+      if (error || !data) return ctx.reply(`Player "${username}" not found\\.`, { parse_mode: 'MarkdownV2' })
+
+      const winRate = data.games_played > 0
+        ? Math.round((data.games_won / data.games_played) * 100)
+        : 0
+
+      const name = escapeMarkdown(data.username)
+
+      ctx.reply(
+        `🏀 *${name} Stats*\n\n` +
+        `💰 Wallet: \`${short(data.wallet_address)}\`\n` +
+        `⭐ Total Points: ${data.total_points}\n` +
+        `🎮 Highest Level: ${data.highest_level}\n` +
+        `🕹️ Games Played: ${data.games_played}\n` +
+        `🏆 Games Won: ${data.games_won}\n` +
+        `📊 Win Rate: ${winRate}%`,
+        { parse_mode: 'MarkdownV2' }
+      )
+    } catch (err) {
+      console.error('/stats error:', err)
+      ctx.reply('❌ Could not fetch stats. Try again later.')
+    }
+  })
+
+  // Catch-all for unknown commands
+  bot.on('text', ctx => {
     ctx.reply(
-      `🏀 *${player.username}*\n` +
-      `📍 Rank: *#${(above || 0) + 1}* of ${total || '?'}\n` +
-      `💰 Wallet: \`${short(player.wallet_address)}\`\n` +
-      `⭐ Points: ${player.total_points}\n` +
-      `🎮 Level: ${player.highest_level}`,
-      { parse_mode: 'Markdown' }
+      'Unknown command\\. Try:\n/play /leaderboard /top5 /rank /stats',
+      { parse_mode: 'MarkdownV2' }
     )
   })
 
-  b.command('stats', async ctx => {
-    const username = ctx.message.text.split(' ')[1]
-    if (!username) return ctx.reply('Usage: /stats <username>')
-
-    const supabase = getSupabase()
-    const { data } = await supabase
-      .from('users')
-      .select('*')
-      .ilike('username', username)
-      .single()
-
-    if (!data) return ctx.reply(`Player "${username}" not found.`)
-
-    const winRate = data.games_played > 0
-      ? Math.round((data.games_won / data.games_played) * 100)
-      : 0
-
-    ctx.reply(
-      `🏀 *${data.username} Stats*\n\n` +
-      `💰 Wallet: \`${short(data.wallet_address)}\`\n` +
-      `⭐ Total Points: ${data.total_points}\n` +
-      `🎮 Highest Level: ${data.highest_level}\n` +
-      `🕹️ Games Played: ${data.games_played}\n` +
-      `🏆 Games Won: ${data.games_won}\n` +
-      `📊 Win Rate: ${winRate}%`,
-      { parse_mode: 'Markdown' }
-    )
-  })
+  return bot
 }
 
+// ── MarkdownV2 escaper ────────────────────────────────────
+function escapeMarkdown(text) {
+  return String(text).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&')
+}
+
+// ── Webhook handler ───────────────────────────────────────
 export default async function handler(req, res) {
+  // GET — health check + webhook setup instructions
   if (req.method === 'GET') {
-    return res.status(200).json({ status: 'BasketBattle Bot is running 🏀' })
+    const token = process.env.TELEGRAM_BOT_TOKEN
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://anago-arena.vercel.app'
+    return res.status(200).json({
+      status: 'ANAGO ARENA Bot is running 🏀',
+      webhook: `${appUrl}/api/bot`,
+      setup: `curl -X POST https://api.telegram.org/bot${token ? '<token>' : 'MISSING_TOKEN'}/setWebhook -d "url=${appUrl}/api/bot"`,
+      token_set: !!token,
+    })
   }
 
+  // POST — Telegram webhook
   if (req.method === 'POST') {
     try {
-      const b = getBot()
-      await b.handleUpdate(req.body)
+      const bot = buildBot()
+      await bot.handleUpdate(req.body)
       return res.status(200).json({ ok: true })
     } catch (err) {
-      console.error('Bot error:', err)
-      return res.status(500).json({ error: 'Bot error' })
+      console.error('Bot handler error:', err.message)
+      // Always return 200 to Telegram — otherwise it retries endlessly
+      return res.status(200).json({ ok: false, error: err.message })
     }
   }
 
   res.status(405).json({ error: 'Method not allowed' })
 }
 
+// Telegraf needs the parsed JSON body — bodyParser must be ON
 export const config = { api: { bodyParser: true } }
