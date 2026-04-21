@@ -36,9 +36,17 @@ export default function GameCanvas({ mode, level, user, room }) {
 
       const container = mountRef.current
 
-      // Use window dimensions (what the renderer actually occupies)
-      const W = window.innerWidth
-      const H = window.innerHeight
+      // ── Portrait-first sizing ─────────────────────────
+      // The game is designed for portrait (tall) screens.
+      // On landscape (PC/desktop), constrain width so the canvas stays portrait-shaped.
+      // MIN_ASPECT = 1.6 means height is always at least 1.6× the width.
+      const rawW = window.innerWidth
+      const rawH = window.innerHeight
+      const MIN_ASPECT = 1.6                             // portrait ratio (height:width)
+      const W = (rawH / rawW) >= MIN_ASPECT
+        ? rawW                                           // portrait phone → fill full width
+        : Math.round(rawH / MIN_ASPECT)                 // landscape desktop → narrow canvas
+      const H = rawH
 
       // ── Renderer ──────────────────────────────────────
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
@@ -47,10 +55,14 @@ export default function GameCanvas({ mode, level, user, room }) {
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       renderer.setClearColor(0x5BB8F5)
+      // Center the canvas (matters on landscape desktop where W < rawW)
+      renderer.domElement.style.position = 'absolute'
+      renderer.domElement.style.left     = Math.round((rawW - W) / 2) + 'px'
+      renderer.domElement.style.top      = '0px'
       container.appendChild(renderer.domElement)
 
       // ── Scene + Camera ────────────────────────────────
-      // Court width = 24 units. Height = 24 * screen aspect.
+      // Court width = 24 units. Height = 24 × (H/W) from the portrait canvas size.
       // OrthographicCamera top/bottom are in CAMERA space (relative to camera.position).
       // Camera sits at Y = COURT_H/2 (center of court).
       // top =  COURT_H/2 + pad  → shows world Y up to COURT_H + pad  (top of court)
@@ -202,8 +214,11 @@ export default function GameCanvas({ mode, level, user, room }) {
       // ── Resize ────────────────────────────────────────
       onResizeHandler = () => {
         if (!container) return
-        const nW = window.innerWidth
-        const nH = window.innerHeight
+        const nRawW = window.innerWidth
+        const nH    = window.innerHeight
+        const nW    = (nH / nRawW) >= MIN_ASPECT
+          ? nRawW
+          : Math.round(nH / MIN_ASPECT)
         const newCourtH = COURT_W * (nH / nW)
         const newCY     = newCourtH / 2
         camera.top    =  newCourtH / 2 + PAD
@@ -214,6 +229,7 @@ export default function GameCanvas({ mode, level, user, room }) {
         camera.lookAt(0, newCY, 0)
         camera.updateProjectionMatrix()
         renderer.setSize(nW, nH)
+        renderer.domElement.style.left = Math.round((nRawW - nW) / 2) + 'px'
       }
       window.addEventListener('resize', onResizeHandler)
 
